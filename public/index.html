@@ -735,14 +735,15 @@
       box-shadow: var(--shadow);
       padding: 32px 36px 36px;
       position: relative;
-      overflow: hidden;
+      /* 不可加 overflow: hidden，否則「追加來源」彈出選單會被卡片裁切 */
     }
     .scroll-card::before, .scroll-card::after {
       content: "";
       position: absolute;
-      left: 0; right: 0;
+      left: 22px; right: 22px;
       height: 4px;
       background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--ink) 14%, transparent), transparent);
+      pointer-events: none;
     }
     .scroll-card::before { top: 0; }
     .scroll-card::after { bottom: 0; }
@@ -918,6 +919,260 @@
       color: var(--ink);
     }
 
+    /* sources accordion (多段音源) */
+    .sources-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .source-item {
+      border: 1px solid var(--rule);
+      border-radius: 12px;
+      background: color-mix(in oklab, var(--paper-3) 70%, transparent);
+      overflow: hidden;
+      transition: border-color .15s ease, background .15s ease;
+    }
+    .source-item:hover { border-color: color-mix(in oklab, var(--moon) 40%, var(--rule)); }
+    .source-hd {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--ink-soft);
+      user-select: none;
+    }
+    .source-hd .source-num {
+      font-family: "Shippori Mincho", serif;
+      letter-spacing: 0.16em;
+      color: var(--ink);
+      font-weight: 600;
+    }
+    .source-hd .source-meta { font-size: 12px; color: var(--ink-mute); }
+    .source-hd .source-spacer { flex: 1; }
+    .source-hd .chev { transition: transform .2s ease; color: var(--ink-mute); }
+    .source-item.open .chev { transform: rotate(180deg); }
+    .source-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s ease;
+    }
+    .source-item.open .source-body { max-height: 480px; overflow-y: auto; }
+    .source-body .body-text {
+      margin: 0 14px 12px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: color-mix(in oklab, var(--ink) 4%, transparent);
+      font-size: 13.5px;
+      line-height: 1.85;
+      color: var(--ink);
+      white-space: pre-wrap;
+    }
+    .append-bar {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px dashed var(--rule);
+    }
+    .append-bar .control-btn { font-size: 12.5px; padding: 6px 12px; }
+    .append-bar .hint {
+      flex: 1; min-width: 0;
+      font-size: 12px; color: var(--ink-mute);
+      align-self: center;
+    }
+    /* 續錄失敗警告 */
+    .append-error {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid color-mix(in oklab, var(--seal) 35%, var(--rule));
+      background: color-mix(in oklab, var(--seal) 8%, var(--paper-3));
+      color: var(--ink);
+      display: flex; gap: 10px; align-items: flex-start;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .append-error .seal-icon {
+      flex-shrink: 0;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--seal);
+      color: var(--paper);
+      display: grid; place-items: center;
+      font-size: 13px;
+      font-family: "Shippori Mincho", serif;
+      margin-top: 1px;
+    }
+    .append-error .msg { flex: 1; white-space: pre-wrap; word-break: break-word; }
+    .append-error .dismiss {
+      flex-shrink: 0;
+      border: 1px solid var(--rule);
+      background: transparent;
+      color: var(--ink-mute);
+      font-family: inherit;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: color .12s ease, border-color .12s ease;
+    }
+    .append-error .dismiss:hover { color: var(--ink); border-color: var(--ink-soft); }
+    .source-kind-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      background: color-mix(in oklab, var(--jade) 15%, transparent);
+      color: color-mix(in oklab, var(--jade) 90%, var(--ink));
+      border: 1px solid color-mix(in oklab, var(--jade) 30%, var(--rule));
+    }
+    .source-kind-chip.audio {
+      background: color-mix(in oklab, var(--moon) 15%, transparent);
+      color: color-mix(in oklab, var(--moon) 80%, var(--ink));
+      border-color: color-mix(in oklab, var(--moon) 30%, var(--rule));
+    }
+
+    /* 文字稿 modal */
+    .text-modal {
+      position: fixed; inset: 0;
+      display: none;
+      align-items: center; justify-content: center;
+      z-index: 9000;
+      background: color-mix(in oklab, var(--paper-2) 70%, transparent);
+      backdrop-filter: blur(6px);
+    }
+    .text-modal.active { display: flex; animation: tmFade .2s ease; }
+    @keyframes tmFade { from { opacity: 0 } to { opacity: 1 } }
+    .text-modal-card {
+      width: min(640px, 92vw);
+      max-height: 80vh;
+      background: var(--paper-3);
+      border: 1px solid var(--rule);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .text-modal-hd {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--rule);
+      font-family: "Shippori Mincho", serif;
+      font-size: 14px;
+      letter-spacing: 0.2em;
+      color: var(--ink);
+    }
+    .text-modal-hd .icon-ghost {
+      width: 28px; height: 28px;
+      border-radius: 8px;
+      border: 1px solid var(--rule);
+      background: transparent;
+      color: var(--ink-mute);
+      cursor: pointer;
+      display: grid; place-items: center;
+      font-size: 14px;
+    }
+    .text-modal-hd .icon-ghost:hover { color: var(--seal); border-color: var(--seal); }
+    .text-modal-body {
+      display: flex; flex-direction: column;
+      flex: 1;
+      min-height: 80px;
+      background: var(--paper);
+    }
+    .text-modal-body textarea {
+      flex: 1;
+      min-height: 280px;
+      resize: vertical;
+      padding: 16px 18px;
+      border: 0;
+      outline: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Zen Maru Gothic", "Shippori Mincho", serif;
+      font-size: 14px;
+      line-height: 1.85;
+      letter-spacing: 0.02em;
+    }
+    .text-modal-body .modal-line-input {
+      margin: 16px 18px;
+      padding: 12px 14px;
+      background: color-mix(in oklab, var(--ink) 4%, transparent);
+      border: 1px solid var(--rule);
+      border-radius: 10px;
+      outline: 0;
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 14px;
+    }
+    .text-modal-body .modal-line-input:focus { border-color: var(--moon); }
+    .text-modal-body .modal-line-input + .modal-line-input { margin-top: 0; }
+    .text-modal-body select.modal-line-input { cursor: pointer; }
+    .text-modal-body .modal-label {
+      margin: 14px 18px 0;
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      color: var(--ink-soft);
+    }
+    .text-modal-meta {
+      padding: 8px 18px;
+      font-size: 12px;
+      color: var(--ink-mute);
+      border-top: 1px solid var(--rule);
+      background: var(--paper-3);
+    }
+    .text-modal-actions {
+      display: flex; justify-content: flex-end; gap: 8px;
+      padding: 12px 18px;
+      background: var(--paper-3);
+    }
+
+    /* 新增來源 picker */
+    .source-picker { position: relative; display: inline-flex; }
+    .source-menu {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 0;
+      min-width: 220px;
+      padding: 6px;
+      background: var(--paper-3);
+      border: 1px solid var(--rule);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 50;
+    }
+    .source-picker.open .source-menu { display: flex; }
+    .source-menu button {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 13.5px;
+      text-align: left;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background .12s ease;
+    }
+    .source-menu button:hover { background: color-mix(in oklab, var(--moon) 14%, transparent); }
+    .source-menu button .glyph {
+      width: 22px; height: 22px;
+      display: grid; place-items: center;
+      font-family: "Shippori Mincho", serif;
+      font-size: 14px;
+      color: var(--moon);
+    }
+    .source-menu .sep {
+      height: 1px;
+      background: var(--rule);
+      margin: 4px 6px;
+    }
+    .source-menu .hint-row {
+      padding: 6px 12px 2px;
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      color: var(--ink-mute);
+    }
+
     /* processing scroll */
     .processing-card {
       width: min(560px, 100%);
@@ -970,6 +1225,18 @@
     .chip.tag-moon { color: color-mix(in oklab, var(--moon) 80%, var(--ink)); background: color-mix(in oklab, var(--moon) 12%, var(--paper-3)); border-color: color-mix(in oklab, var(--moon) 30%, var(--rule)); }
     .chip.tag-jade { color: color-mix(in oklab, var(--jade) 80%, var(--ink)); background: color-mix(in oklab, var(--jade) 12%, var(--paper-3)); border-color: color-mix(in oklab, var(--jade) 30%, var(--rule)); }
     .chip.tag-seal { color: color-mix(in oklab, var(--seal) 90%, var(--ink)); background: color-mix(in oklab, var(--seal) 10%, var(--paper-3)); border-color: color-mix(in oklab, var(--seal) 30%, var(--rule)); }
+    a.chip.link {
+      display: inline-flex; align-items: center; gap: 6px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: color .12s ease, background .12s ease, border-color .12s ease;
+    }
+    a.chip.link:hover {
+      color: color-mix(in oklab, var(--moon) 90%, var(--ink));
+      background: color-mix(in oklab, var(--moon) 18%, var(--paper-3));
+      border-color: color-mix(in oklab, var(--moon) 45%, var(--rule));
+    }
+    a.chip.link .arr { font-size: 10px; opacity: .8; }
 
     /* footer ornament */
     .ornament {
@@ -1328,7 +1595,7 @@
     </main>
   </div>
 
-  <input type="file" id="file-input" accept="audio/*,video/quicktime" hidden />
+  <input type="file" id="file-input" accept="audio/*,video/quicktime,.pdf,.mp3,.m4a,.wav,.mov,.mp4,.webm,.ogg" hidden />
 
 <script>
 /* ──────────────────────────────────────────────────────────
@@ -1349,6 +1616,9 @@ let state = {
   currentMeeting: null,        // full meeting object
   searchQuery: '',
   transcriptOpen: false,
+  openSources: {},             // {index: bool} 摘要頁音源摺疊狀態
+  appendingTo: null,           // 若不為 null，handleStop 會把音檔加到此 meeting 而非新建
+  sourceModal: null,           // { kind, mode } | null 通用來源 modal
   theme: localStorage.getItem('yomi-theme') || 'day',
   mascot: localStorage.getItem('yomi-mascot') || 'neko',  // 'neko' | 'tsuki'
 };
@@ -1389,6 +1659,9 @@ function fmtDateTime(iso) {
 }
 function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function notebookLmUrl(id) {
+  return `https://notebooklm.google.com/notebook/${encodeURIComponent(id)}`;
 }
 
 function renderMarkdown(src) {
@@ -1464,6 +1737,7 @@ function stageLabel(stage) {
     queued: '待入夢',
     creating: '結印',
     uploading: '上傳',
+    appending: '續印',
     transcribing: '解讀',
     summarizing: '凝練',
     done: '已封印',
@@ -1751,18 +2025,37 @@ function tplIdle() {
       <button class="control-btn primary" id="btn-start">
         <span class="dot"></span> 開始錄音
       </button>
-      <button class="control-btn" id="btn-upload">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-          <path d="M8 11 V3 M5 6 L8 3 L11 6 M3 12 V13 H13 V12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        上傳音檔
-      </button>
+      ${sourcePickerHtml('btn-source-create', 'create', '其他來源')}
     </div>
 
     <div class="ornament">
       <span class="line"></span>
       <span>月 影 之 印</span>
       <span class="line"></span>
+    </div>`;
+}
+
+function sourcePickerHtml(id, mode, label) {
+  return `
+    <div class="source-picker" id="${id}-wrap">
+      <button class="control-btn" id="${id}">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <path d="M8 3 v10 M3 8 h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+        ${label}
+      </button>
+      <div class="source-menu">
+        <div class="hint-row">${mode === 'append' ? '追加 · 同一卷宗' : '結新卷宗'}</div>
+        ${mode === 'append' ? `
+          <button data-kind="record"><span class="glyph">音</span>續錄音源</button>
+        ` : ''}
+        <button data-kind="file"><span class="glyph">檔</span>上傳檔案（音檔/PDF/MP4）</button>
+        <button data-kind="text"><span class="glyph">文</span>貼上文字稿</button>
+        <div class="sep"></div>
+        <button data-kind="url"><span class="glyph">網</span>網頁網址</button>
+        <button data-kind="youtube"><span class="glyph">影</span>YouTube 影片</button>
+        <button data-kind="drive"><span class="glyph">雲</span>Google Drive 文件</button>
+      </div>
     </div>`;
 }
 
@@ -1847,7 +2140,7 @@ function tplSummary() {
   if (m.createdAt) meta.push(fmtDateTime(m.createdAt));
   if (m.completedAt) meta.push('已封印於 ' + fmtDateTime(m.completedAt));
 
-  const tOpen = state.transcriptOpen;
+  const sources = Array.isArray(m.sources) ? m.sources : [];
 
   return `
     <div class="eyebrow">卷 · 軸 · 完 · 成</div>
@@ -1855,6 +2148,13 @@ function tplSummary() {
 
     <div class="scroll-card">
       <div class="scroll-actions">
+        ${m.notebookId ? `
+          <a class="icon-ghost" href="${notebookLmUrl(m.notebookId)}" target="_blank" rel="noopener" title="在 NotebookLM 開啟" style="text-decoration:none">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M6 3 H3 V13 H13 V10 M9 3 H13 V7 M13 3 L8 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+        ` : ''}
         <button class="icon-ghost" id="btn-delete" title="解除此卷">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
             <path d="M3 5 H13 M6 5 V3 H10 V5 M5 5 L6 13 H10 L11 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1871,6 +2171,11 @@ function tplSummary() {
           <div class="chips">
             <span class="chip tag-jade">已整理</span>
             <span class="chip">月讀閱讀</span>
+            ${m.notebookId ? `
+              <a class="chip link tag-moon" href="${notebookLmUrl(m.notebookId)}" target="_blank" rel="noopener" title="在 NotebookLM 開啟此筆記">
+                NotebookLM <span class="arr">↗</span>
+              </a>
+            ` : ''}
           </div>
         </div>
         <div class="seal" aria-label="月讀之印">
@@ -1887,15 +2192,45 @@ function tplSummary() {
         <div class="body-text md">${m.summary ? renderMarkdown(m.summary) : '（尚未產生摘要）'}</div>
       </div>
 
-      <a class="transcript-link ${tOpen ? 'open' : ''}" id="transcript-toggle">
-        ${tOpen ? '收起逐字稿' : '展開完整逐字稿'}
-        <svg class="chev" width="12" height="12" viewBox="0 0 12 12" fill="none">
-          <path d="M3 5 L6 8 L9 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-      </a>
+      <div class="scroll-section">
+        <h4>音 源 卷${sources.length > 1 ? ` · ${sources.length} 段` : ''}</h4>
+        <div class="sources-list">
+          ${sources.map((s, i) => {
+            const open = !!state.openSources[i];
+            const meta = s.addedAt ? fmtDateTime(s.addedAt) : '';
+            const isText = s.kind === 'text';
+            const kindChip = isText
+              ? '<span class="source-kind-chip">文 字</span>'
+              : '<span class="source-kind-chip audio">音 源</span>';
+            return `
+              <div class="source-item ${open ? 'open' : ''}" data-idx="${i}">
+                <div class="source-hd" data-toggle="${i}">
+                  <span class="source-num">第 ${i + 1} 段</span>
+                  ${kindChip}
+                  <span class="source-meta">${escapeHtml(meta)}</span>
+                  <span class="source-spacer"></span>
+                  <svg class="chev" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M3 5 L6 8 L9 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  </svg>
+                </div>
+                <div class="source-body">
+                  <div class="body-text">${escapeHtml(s.transcript || '（無內容）')}</div>
+                </div>
+              </div>`;
+          }).join('') || '<div class="record-empty">（無音源）</div>'}
+        </div>
+        <div class="append-bar">
+          <span class="hint">中場休息續錄、追加文字稿、網頁、YouTube 都可加進這同一個卷宗；摘要會自動重整</span>
+          ${sourcePickerHtml('btn-source-append', 'append', '追加來源')}
+        </div>
 
-      <div class="transcript-body ${tOpen ? 'open' : ''}">
-        <div class="body-text">${escapeHtml(m.transcript || '（無逐字稿）')}</div>
+        ${m.appendError ? `
+          <div class="append-error" id="append-error-banner">
+            <div class="seal-icon">!</div>
+            <div class="msg">${escapeHtml(m.appendError)}</div>
+            <button class="dismiss" id="btn-dismiss-append-error">收起</button>
+          </div>
+        ` : ''}
       </div>
     </div>
 
@@ -1958,11 +2293,16 @@ function tplError() {
 
 // ── Build processing steps from stage ──────────────────────
 function buildSteps(stage) {
-  const order = ['封存音檔 · 加密保存', '聆聽轉錄 · 含說話人辨識', '月讀閱讀 · 抓取重點與行動項', '蓋上月影之印 · 完成卷軸'];
+  const isAppending = state.currentMeeting?.stage === 'appending'
+    || (state.currentMeeting?.sources?.length > 1 && stage !== 'done' && stage !== 'error' && stage !== 'cancelled');
+  const order = isAppending
+    ? ['續封新一段音源', '聆聽轉錄新段落', '重整全卷摘要', '蓋上月影之印 · 完成卷軸']
+    : ['封存音檔 · 加密保存', '聆聽轉錄 · 含說話人辨識', '月讀閱讀 · 抓取重點與行動項', '蓋上月影之印 · 完成卷軸'];
   const map = {
     queued:       0,
     creating:     0,
     uploading:    0,
+    appending:    0,
     transcribing: 1,
     summarizing:  2,
     done:         4,
@@ -2010,11 +2350,21 @@ function wireStage() {
   if (btnCancel) btnCancel.addEventListener('click', handleCancel);
 
   // Summary
-  const tToggle = $('#transcript-toggle');
-  if (tToggle) tToggle.addEventListener('click', () => {
-    state.transcriptOpen = !state.transcriptOpen;
-    renderStage();
+  $$('.source-hd').forEach(el => {
+    el.addEventListener('click', () => {
+      const idx = Number(el.dataset.toggle);
+      state.openSources[idx] = !state.openSources[idx];
+      renderStage();
+    });
   });
+
+  // Source pickers (Idle + Append)
+  wireSourcePicker('btn-source-create', 'create');
+  wireSourcePicker('btn-source-append', 'append');
+
+  const btnDismiss = $('#btn-dismiss-append-error');
+  if (btnDismiss) btnDismiss.addEventListener('click', handleDismissAppendError);
+
   const btnDelete = $('#btn-delete');
   if (btnDelete) btnDelete.addEventListener('click', handleDelete);
   const btnNew = $('#btn-new');
@@ -2141,8 +2491,10 @@ async function handleStart() {
     mediaRecorder.start(1000);
     state.recording = true;
     state.recordingStartedAt = Date.now();
-    state.currentMeetingId = null;
-    state.currentMeeting = null;
+    if (!state.appendingTo) {
+      state.currentMeetingId = null;
+      state.currentMeeting = null;
+    }
     render();
   } catch (e) {
     cleanupRecorder();
@@ -2175,9 +2527,12 @@ async function handleStop() {
   state.recording = false;
   state.recordingStartedAt = null;
 
+  const appendingTo = state.appendingTo;
+  state.appendingTo = null;
   try {
     const buf = await blob.arrayBuffer();
-    const data = await api('/api/meetings', {
+    const endpoint = appendingTo ? `/api/meetings/${appendingTo}/sources` : '/api/meetings';
+    const data = await api(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/octet-stream', 'X-Audio-Ext': recordedExt },
       body: buf
@@ -2190,12 +2545,13 @@ async function handleStop() {
   }
 }
 
-async function handleUpload(file) {
+async function handleUpload(file, appendingTo = null) {
   const m = file.name.match(/\.([^.]+)$/);
   const ext = (m ? m[1] : 'm4a').toLowerCase();
   const buf = await file.arrayBuffer();
   try {
-    const data = await api('/api/meetings', {
+    const endpoint = appendingTo ? `/api/meetings/${appendingTo}/sources` : '/api/meetings';
+    const data = await api(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/octet-stream', 'X-Audio-Ext': ext },
       body: buf
@@ -2204,6 +2560,163 @@ async function handleUpload(file) {
     await refreshList();
   } catch (e) {
     alert('上傳失敗：' + e.message);
+  }
+}
+
+async function handleAppendRecord() {
+  if (!state.currentMeetingId) return;
+  if (state.currentMeeting?.stage !== 'done') {
+    alert('只有已封印的卷宗能續錄');
+    return;
+  }
+  state.appendingTo = state.currentMeetingId;
+  await handleStart();
+}
+
+function handleAppendUploadClick() {
+  if (!state.currentMeetingId) return;
+  if (state.currentMeeting?.stage !== 'done') {
+    alert('只有已封印的卷宗能追加音檔');
+    return;
+  }
+  const id = state.currentMeetingId;
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'audio/*,.m4a,.mp3,.wav,.mov,.mp4,.webm,.ogg,.pdf';
+  input.addEventListener('change', () => {
+    const f = input.files?.[0];
+    if (f) handleUpload(f, id);
+  });
+  input.click();
+}
+
+// ── Source picker (新增來源 / 追加來源 統一入口) ───────────────
+function closeAllSourceMenus() {
+  document.querySelectorAll('.source-picker.open').forEach(el => el.classList.remove('open'));
+}
+function wireSourcePicker(buttonId, mode) {
+  const btn = document.getElementById(buttonId);
+  const wrap = document.getElementById(buttonId + '-wrap');
+  if (!btn || !wrap) return;
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const wasOpen = wrap.classList.contains('open');
+    closeAllSourceMenus();
+    if (!wasOpen) wrap.classList.add('open');
+  });
+  wrap.querySelectorAll('.source-menu button').forEach(item => {
+    item.addEventListener('click', () => {
+      const kind = item.dataset.kind;
+      closeAllSourceMenus();
+      handleSourcePick(kind, mode);
+    });
+  });
+}
+function handleSourcePick(kind, mode) {
+  if (kind === 'record') {
+    if (mode === 'append') handleAppendRecord();
+    else handleStart();
+  } else if (kind === 'file') {
+    if (mode === 'append') handleAppendUploadClick();
+    else $('#file-input').click();
+  } else if (['text', 'url', 'youtube', 'drive'].includes(kind)) {
+    openSourceModal(kind, mode);
+  }
+}
+
+// ── 通用來源 modal（文字 / 網址 / YouTube / Drive） ────────────
+const MODAL_CFG = {
+  text: {
+    title: '貼上文字稿',
+    submit: '封入卷宗',
+    body: '<textarea id="modal-input" placeholder="把會議文字稿、訪談記錄、或任何想交給月讀整理的文字貼到這裡…"></textarea>',
+    hint: '文字會以新 source 加入到 NotebookLM，無需轉錄。',
+  },
+  url: {
+    title: '加入網頁網址',
+    submit: '抓取網頁',
+    body: '<input type="url" id="modal-input" class="modal-line-input" placeholder="https://example.com/article" />',
+    hint: 'NotebookLM 會抓取網頁內容；不支援需要登入或重 JS 的頁面。',
+  },
+  youtube: {
+    title: '加入 YouTube 影片',
+    submit: '抓取影片',
+    body: '<input type="url" id="modal-input" class="modal-line-input" placeholder="https://youtu.be/..." />',
+    hint: '需要該影片有字幕；NotebookLM 會抓取字幕作為內容。',
+  },
+  drive: {
+    title: '加入 Google Drive 文件',
+    submit: '加入文件',
+    body: `
+      <label class="modal-label">文件 ID</label>
+      <input type="text" id="modal-input" class="modal-line-input" placeholder="例如 1Ab2Cd3Ef4Gh5Ij..." />
+      <label class="modal-label">類型</label>
+      <select id="modal-drive-type" class="modal-line-input">
+        <option value="doc">Google Docs</option>
+        <option value="slides">Google Slides</option>
+        <option value="sheets">Google Sheets</option>
+        <option value="pdf">PDF on Drive</option>
+      </select>`,
+    hint: '貼上 Drive 文件 URL 中 /d/ 後面那串 ID；需要該 Drive 帳號已連結 NotebookLM。',
+  },
+};
+
+function openSourceModal(kind, mode) {
+  const cfg = MODAL_CFG[kind];
+  if (!cfg) return;
+  if (mode === 'append' && state.currentMeeting?.stage !== 'done') {
+    alert('只有已封印的卷宗能追加來源');
+    return;
+  }
+  state.sourceModal = { kind, mode };
+  document.getElementById('text-modal-title').textContent = cfg.title;
+  document.getElementById('text-modal-body').innerHTML = cfg.body;
+  document.getElementById('text-modal-submit').textContent = cfg.submit;
+  const meta = document.getElementById('text-modal-meta');
+  meta.textContent = cfg.hint || '';
+  const modal = document.getElementById('text-modal');
+  modal.classList.add('active');
+  setTimeout(() => {
+    const focusEl = document.getElementById('modal-input');
+    if (focusEl) focusEl.focus();
+    if (kind === 'text' && focusEl) {
+      const upd = () => { meta.textContent = `${focusEl.value.length.toLocaleString()} 字`; };
+      focusEl.addEventListener('input', upd);
+      upd();
+    }
+  }, 50);
+}
+function closeSourceModal() {
+  state.sourceModal = null;
+  const m = document.getElementById('text-modal');
+  if (m) m.classList.remove('active');
+}
+async function handleSourceSubmit() {
+  if (!state.sourceModal) return;
+  const { kind, mode } = state.sourceModal;
+  const input = document.getElementById('modal-input');
+  if (!input) return;
+  const value = input.value.trim();
+  if (!value) { alert('內容不能為空'); input.focus(); return; }
+
+  const headers = {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'X-Source-Type': kind,
+  };
+  if (kind === 'drive') {
+    const dt = document.getElementById('modal-drive-type');
+    if (dt && dt.value) headers['X-Drive-Type'] = dt.value;
+  }
+  const endpoint = mode === 'append' && state.currentMeetingId
+    ? `/api/meetings/${state.currentMeetingId}/sources`
+    : '/api/meetings';
+  closeSourceModal();
+  try {
+    const data = await api(endpoint, { method: 'POST', headers, body: value });
+    await openMeeting(data.meeting);
+    await refreshList();
+  } catch (e) {
+    alert('送出失敗：' + e.message);
   }
 }
 
@@ -2256,6 +2769,19 @@ async function handleSelect(id) {
   }
 }
 
+async function handleDismissAppendError() {
+  const id = state.currentMeetingId;
+  if (!id) return;
+  try {
+    const r = await api(`/api/meetings/${id}/clear-append-error`, { method: 'POST' });
+    if (state.currentMeeting) state.currentMeeting.appendError = undefined;
+    if (r.meeting) state.currentMeeting = r.meeting;
+    renderStage();
+  } catch (e) {
+    alert('清除失敗：' + e.message);
+  }
+}
+
 async function handleDelete() {
   if (!state.currentMeetingId) return;
   if (!confirm('確定解除此卷？此記憶將永遠湮滅（NotebookLM 上的對應筆記也會一併刪除）。')) return;
@@ -2278,12 +2804,17 @@ function handleBackToIdle() {
   state.currentMeetingId = null;
   state.currentMeeting = null;
   state.transcriptOpen = false;
+  state.openSources = {};
+  state.appendingTo = null;
   closeStream();
   render();
 }
 
 // ── Meeting helpers ────────────────────────────────────────
 async function openMeeting(meeting) {
+  if (state.currentMeetingId !== meeting.id) {
+    state.openSources = {};
+  }
   state.currentMeetingId = meeting.id;
   state.currentMeeting = meeting;
   state.transcriptOpen = false;
@@ -2335,6 +2866,16 @@ function openStream(id) {
       const d = JSON.parse(e.data);
       if (state.currentMeeting && state.currentMeetingId === id) {
         state.currentMeeting = { ...state.currentMeeting, stage: 'cancelled', stageMsg: d.msg };
+        await refreshList();
+        render();
+      }
+    } catch {}
+  });
+  currentEventSource.addEventListener('append-error', async (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      if (state.currentMeetingId === id) {
+        state.currentMeeting = d.meeting || { ...state.currentMeeting, appendError: d.msg, stage: 'done' };
         await refreshList();
         render();
       }
@@ -2507,6 +3048,28 @@ function wireGlobal() {
     const f = e.dataTransfer?.files?.[0];
     if (f) handleUpload(f);
   });
+
+  // Source modal 全域綁定（這些元素在 <script> 之後才出現，DOMContentLoaded 後才會存在）
+  const modalEl = document.getElementById('text-modal');
+  const modalClose = document.getElementById('text-modal-close');
+  const modalCancel = document.getElementById('text-modal-cancel');
+  const modalSubmit = document.getElementById('text-modal-submit');
+  if (modalClose) modalClose.addEventListener('click', closeSourceModal);
+  if (modalCancel) modalCancel.addEventListener('click', closeSourceModal);
+  if (modalSubmit) modalSubmit.addEventListener('click', handleSourceSubmit);
+  if (modalEl) modalEl.addEventListener('click', e => { if (e.target === modalEl) closeSourceModal(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && state.sourceModal) closeSourceModal();
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && state.sourceModal) {
+      e.preventDefault(); handleSourceSubmit();
+    }
+  });
+
+  // 點 picker 外面關 menu
+  document.addEventListener('click', e => {
+    if (e.target.closest('.source-picker')) return;
+    closeAllSourceMenus();
+  });
 }
 
 // ── Init ───────────────────────────────────────────────────
@@ -2523,7 +3086,11 @@ async function init() {
   setInterval(pollHealth, 4000);
 }
 
-init();
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
 </script>
   <!-- 忍術主題切換 -->
   <div class="theme-transition" id="theme-transition" aria-hidden="true">
@@ -2531,6 +3098,22 @@ init();
     <div class="blade b1"></div>
     <div class="blade b2"></div>
     <div class="shuriken"><span id="theme-transition-kanji">忍</span></div>
+  </div>
+
+  <!-- 通用來源 modal（文字 / 網址 / YouTube / Drive） -->
+  <div class="text-modal" id="text-modal" aria-hidden="true">
+    <div class="text-modal-card">
+      <div class="text-modal-hd">
+        <span id="text-modal-title">貼上文字稿</span>
+        <button class="icon-ghost" id="text-modal-close" aria-label="關閉">✕</button>
+      </div>
+      <div class="text-modal-body" id="text-modal-body"></div>
+      <div class="text-modal-meta" id="text-modal-meta"></div>
+      <div class="text-modal-actions">
+        <button class="control-btn ghost" id="text-modal-cancel">取消</button>
+        <button class="control-btn primary" id="text-modal-submit">封入卷宗</button>
+      </div>
+    </div>
   </div>
 
   <!-- 重啟結界 -->
