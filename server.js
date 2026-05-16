@@ -217,19 +217,54 @@ async function ingestSource(meeting, src, opts = {}) {
   if (isText) src.transcript = src.text;
   save();
 
+  // 上傳指令回了 0 但拿不到 source ID — 視為上傳失敗，不要默默繼續
+  if (!src.sourceId) {
+    const raw = (addRes.stdout || addRes.stderr || '').trim();
+    throw new Error(
+      '上傳到 NotebookLM 完成但無法解析 source ID，可能上傳失敗或服務回應異常。\n\n原始回應：\n' +
+      (raw.slice(0, 800) || '(無輸出)')
+    );
+  }
+
   if (!isText) {
     checkCancelled(meeting);
     pushStage(meeting, 'transcribing', transcribeMsg);
-    if (src.sourceId) {
-      try {
-        const tRes = await runForMeeting(meeting.id, NLM_BIN, ['source', 'get', src.sourceId]);
-        src.transcript = extractContent(tRes.stdout);
-      } catch (e) {
-        src.transcript = `(無法取得內容: ${e.message})`;
-      }
-      save();
+    let transcribeError = null;
+    try {
+      const tRes = await runForMeeting(meeting.id, NLM_BIN, ['source', 'get', src.sourceId]);
+      src.transcript = extractContent(tRes.stdout);
+    } catch (e) {
+      transcribeError = e;
+      src.transcript = `(無法取得內容: ${e.message})`;
+    }
+    save();
+
+    // 音檔／檔案類來源是「我們交給 NotebookLM 的東西」，如果連內容都讀不回來，
+    // 後續摘要也不會有意義；直接視為錯誤。網頁 / YouTube / Drive 由 NotebookLM 自行
+    // 抓內容，取不到逐字稿不一定代表失敗，仍給機會繼續走摘要。
+    const trimmed = (src.transcript || '').trim();
+    const empty = !trimmed || /^\(無法取得內容/.test(trimmed);
+    if ((kind === 'audio' || kind === 'file') && empty) {
+      throw new Error(
+        'NotebookLM 沒有從此來源取得任何內容。可能音檔／檔案無聲、太短、格式不支援，' +
+        '或 NotebookLM 端處理失敗。請確認來源有效後重試。' +
+        (transcribeError ? `\n\n原始訊息：\n${transcribeError.message}` : '')
+      );
     }
   }
+}
+
+// 驗證 NotebookLM 摘要回傳是否有意義；空字串 / 過短 / 純錯誤訊息都當失敗
+function validateSummary(stdout) {
+  const summary = extractAnswer(stdout);
+  const trimmed = (summary || '').trim();
+  if (!trimmed || trimmed.length < 20) {
+    throw new Error(
+      'NotebookLM 沒有回傳有效摘要（內容為空或過短），可能來源未被正確處理或服務暫時不可用。\n\n原始回應：\n' +
+      ((stdout || '').slice(0, 800) || '(空)')
+    );
+  }
+  return summary;
 }
 
 async function processMeeting(meeting) {
@@ -247,7 +282,7 @@ async function processMeeting(meeting) {
     checkCancelled(meeting);
     pushStage(meeting, 'summarizing', '產生摘要與反問問題…');
     const qRes = await runForMeeting(meeting.id, NLM_BIN, ['notebook', 'query', notebookId, SUMMARY_PROMPT]);
-    meeting.summary = extractAnswer(qRes.stdout);
+    meeting.summary = validateSummary(qRes.stdout);
     meeting.completedAt = new Date().toISOString();
     pushStage(meeting, 'done', '完成');
     broadcast(meeting.id, 'done', { meeting });
@@ -283,7 +318,7 @@ async function appendSourceToMeeting(meeting, sourceIndex) {
     checkCancelled(meeting);
     pushStage(meeting, 'summarizing', '重新整合所有來源產生摘要…');
     const qRes = await runForMeeting(meeting.id, NLM_BIN, ['notebook', 'query', meeting.notebookId, SUMMARY_PROMPT]);
-    meeting.summary = extractAnswer(qRes.stdout);
+    meeting.summary = validateSummary(qRes.stdout);
     meeting.completedAt = new Date().toISOString();
     delete meeting.appendError;
     pushStage(meeting, 'done', '完成');
