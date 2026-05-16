@@ -33,7 +33,7 @@ sw_vers -productVersion
 
 - **Node**：要 ≥ 18。沒裝 → 提示用 `brew install node` 或 `nvm install --lts`，問使用者要哪一種。
 - **nlm**：有就跳過步驟 2。沒有就走步驟 2。
-- **macOS**：低於 13 警告但不阻擋。非 macOS 直接告訴使用者：QuickTime 那段不會動，問是否繼續（瀏覽器錄音那段還是能用）。
+- **macOS**：主要支援 macOS，但錄音是瀏覽器 `MediaRecorder` 跨平台。Linux 理論上能跑（沒實測過），跟使用者說一聲就好不要擋。Windows 要先警告 `npm run stop` 用了 `lsof`，需要自己改成 `netstat`/`taskkill`。
 
 ---
 
@@ -91,15 +91,13 @@ nlm notebook list
 
 ---
 
-## 步驟 4：macOS 權限預告
+## 步驟 4：麥克風權限預告
 
-**只用 Bash 預告，不要試圖自動授權**（macOS 不允許）。告訴使用者：
+純對話提醒，不要試圖自動授權。告訴使用者：
 
-> 第一次按開始錄音時 macOS 會跳兩個權限視窗，**兩個都要按允許**：
-> 1. 麥克風 — 給瀏覽器
-> 2. 自動化（控制 QuickTime Player）— 給 Terminal 或 Node
+> 第一次按開始錄音時瀏覽器會跳一個權限請求 **麥克風**，按允許就好。錄音由瀏覽器原生 `MediaRecorder` 處理，不會碰到 macOS 系統層的權限視窗。
 >
-> 如果不小心拒絕了，到「系統設定 → 隱私權與安全性 → 麥克風／自動化」打勾補上。
+> 如果不小心拒絕了，到瀏覽器網址列旁邊的小鎖頭重新打開即可。
 
 問使用者確認他知道了。
 
@@ -174,7 +172,7 @@ open http://localhost:3748
 - [x] / [ ] Node 18+
 - [x] / [ ] nlm CLI 已安裝
 - [x] / [ ] NotebookLM 已登入
-- [x] / [ ] macOS 權限預告
+- [x] / [ ] 麥克風權限預告
 - [x] / [ ] npm install
 - [x] / [ ] server 啟動驗證
 - [x] / [ ] 瀏覽器已開

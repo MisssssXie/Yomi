@@ -2,7 +2,7 @@
 
 > 把錄音封進卷宗，讓月讀替你閱讀。
 
-一個跑在自己 macOS 上的本地 web app：開麥克風錄音 → 自動丟給 NotebookLM → 拿回逐字稿與摘要 → 變成你私人的可搜尋卷宗。
+一個跑在自己電腦上的本地 web app：用瀏覽器原生錄音（或拖音檔進來）→ 自動丟給 NotebookLM → 拿回逐字稿與摘要 → 變成你私人的可搜尋卷宗。
 
 整個流程沒有第三方雲端後端，只有：你的麥克風 → 你的電腦 → 你登入的 NotebookLM 帳號。
 
@@ -10,7 +10,7 @@
 
 | 你做的事 | Yomi 替你做的事 |
 | --- | --- |
-| 點一下月兔（或忍貓）開始錄 | 用 QuickTime 開高品質錄音、計時、波形顯示 |
+| 點一下月兔（或忍貓）開始錄 | 用瀏覽器 `MediaRecorder` 錄音、計時、波形顯示 |
 | 結束錄音 | 自動建一份 NotebookLM 卷宗、上傳音檔 |
 | 等月讀讀完 | 拿回逐字稿、抓重點、行動項、決議、可反問的問題 |
 | 之後想回顧 | 全文搜尋、查源頭、把新音檔追加進同一卷 |
@@ -21,14 +21,15 @@
 
 - 開很多會、做訪談、用語音寫筆記，需要事後可搜尋
 - 願意讓 Google NotebookLM 處理音檔（這是核心依賴）
-- 用 macOS（用到 QuickTime + AppleScript）
+- 用 macOS（主要開發與測試環境；Linux 理論上可用，沒實測過）
 
 ## 系統需求
 
-- macOS 13+（其他版本沒測過）
+- macOS（主要支援）；Linux 應該也能跑但未驗證
 - Node.js 18+
 - [`nlm`](https://pypi.org/project/notebooklm-mcp-cli/) CLI，已登入 NotebookLM
 - 一個能進 [NotebookLM](https://notebooklm.google.com) 的 Google 帳號
+- 支援 `MediaRecorder` 的瀏覽器（Chrome / Safari / Edge / Firefox 都行）
 
 ## 一鍵安裝（建議）
 
@@ -73,11 +74,7 @@ npm start
 
 開瀏覽器到 <http://localhost:3748> 就會看到月兔等你。
 
-第一次按開始錄音時 macOS 會跳兩個權限視窗：
-- **麥克風**：給瀏覽器
-- **自動化（控制 QuickTime Player）**：給 Terminal 或你跑 Node 的程式
-
-兩個都要允許，否則錄不到聲音／開不了 QuickTime。
+第一次按開始錄音時瀏覽器會跳一個權限視窗請求**麥克風**，按允許就好。如果不小心拒絕了，到瀏覽器網址列旁邊的小鎖頭重新打開。
 
 ## 常用指令
 
