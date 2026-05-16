@@ -1,8 +1,8 @@
-# Yomi · 月讀
+# Yomi · 無限月讀
 
 > 把錄音封進卷宗，讓月讀替你閱讀。
 
-| 待機 · 等你錄音 | 月讀 · 閱讀中 | 完成 ·卷宗 |
+| 待機 · 等你錄音 | 月讀 · 閱讀中 | 完成 · 卷宗 |
 | :---: | :---: | :---: |
 | ![Yomi 待機畫面](docs/yomi-idle.png) | ![Yomi 處理中畫面](docs/yomi-processing.png) | ![Yomi 摘要畫面](docs/yomi-summary.png) |
 
