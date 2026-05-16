@@ -472,6 +472,38 @@
     }
     .theme-pill:hover { background: color-mix(in oklab, var(--paper-3) 80%, var(--paper-2)); }
 
+    /* server status + restart */
+    .server-pill {
+      height: 34px; padding: 0 14px 0 10px;
+      border-radius: 999px;
+      border: 1px solid var(--rule);
+      background: var(--paper-3);
+      color: var(--ink-soft);
+      display: flex; align-items: center; gap: 8px;
+      font-family: inherit; font-size: 12px;
+      cursor: pointer;
+      transition: background .12s ease, border-color .12s ease;
+    }
+    .server-pill:hover { background: color-mix(in oklab, var(--paper-3) 80%, var(--paper-2)); }
+    .server-pill .led {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--ink-mute);
+      box-shadow: 0 0 0 0 currentColor;
+    }
+    .server-pill[data-state="up"]   .led { background: var(--jade); box-shadow: 0 0 6px color-mix(in oklab, var(--jade) 70%, transparent); }
+    .server-pill[data-state="down"] .led { background: var(--seal); box-shadow: 0 0 6px color-mix(in oklab, var(--seal) 70%, transparent); }
+    .server-pill[data-state="restarting"] .led {
+      background: var(--moon);
+      animation: pulse 1s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50%      { opacity: 1; }
+    }
+    .server-pill[data-state="up"]         { border-color: color-mix(in oklab, var(--jade) 30%, var(--rule)); }
+    .server-pill[data-state="down"]       { border-color: color-mix(in oklab, var(--seal) 40%, var(--rule)); }
+    .server-pill[data-state="restarting"] { border-color: color-mix(in oklab, var(--moon) 40%, var(--rule)); }
+
     /* ── Stage content ── */
     .stage-body {
       flex: 1;
@@ -728,6 +760,22 @@
       letter-spacing: 0.02em;
       color: var(--ink);
     }
+    .scroll-title[contenteditable="true"] {
+      outline: none;
+      cursor: text;
+      border-radius: 6px;
+      padding: 2px 6px;
+      margin: -2px -6px;
+      transition: background .15s ease, box-shadow .15s ease;
+    }
+    .scroll-title[contenteditable="true"]:hover {
+      background: color-mix(in oklab, var(--moon) 8%, transparent);
+    }
+    .scroll-title[contenteditable="true"]:focus {
+      background: color-mix(in oklab, var(--moon) 12%, transparent);
+      box-shadow: inset 0 -2px 0 var(--moon);
+    }
+    .scroll-title.saving { opacity: 0.5; pointer-events: none; }
     .scroll-meta {
       display: flex; gap: 14px; margin-top: 8px;
       font-size: 12px; color: var(--ink-soft);
@@ -949,6 +997,244 @@
     }
 
     /* responsive */
+    /* ═══════════════════════════════════════════════════════════
+       忍術切換：主題切換時的雙重斬擊 + 月印閃光
+       ═══════════════════════════════════════════════════════════ */
+    .theme-transition {
+      position: fixed; inset: 0;
+      z-index: 9999;
+      pointer-events: none;
+      overflow: hidden;
+      display: none;
+    }
+    .theme-transition.active { display: block; }
+    .theme-transition .blade {
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 220vmax; height: 22vmin;
+      background: linear-gradient(90deg,
+        transparent 0%,
+        color-mix(in oklab, var(--ink) 40%, transparent) 25%,
+        var(--ink) 50%,
+        color-mix(in oklab, var(--ink) 40%, transparent) 75%,
+        transparent 100%);
+      filter: blur(1.5px);
+      transform-origin: center;
+      opacity: 0.95;
+    }
+    .theme-transition .blade.b1 {
+      transform: translate(-50%, -50%) rotate(-22deg) translateX(-180vmax);
+      animation: blade-slash-1 0.85s cubic-bezier(.6,.04,.32,.99) forwards;
+    }
+    .theme-transition .blade.b2 {
+      transform: translate(-50%, -50%) rotate(22deg) translateX(180vmax);
+      animation: blade-slash-2 0.85s cubic-bezier(.6,.04,.32,.99) 0.08s forwards;
+    }
+    @keyframes blade-slash-1 {
+      0%   { transform: translate(-50%, -50%) rotate(-22deg) translateX(-180vmax); opacity: 0; }
+      18%  { opacity: 1; }
+      82%  { opacity: 1; }
+      100% { transform: translate(-50%, -50%) rotate(-22deg) translateX(180vmax); opacity: 0; }
+    }
+    @keyframes blade-slash-2 {
+      0%   { transform: translate(-50%, -50%) rotate(22deg) translateX(180vmax); opacity: 0; }
+      18%  { opacity: 1; }
+      82%  { opacity: 1; }
+      100% { transform: translate(-50%, -50%) rotate(22deg) translateX(-180vmax); opacity: 0; }
+    }
+    .theme-transition .shuriken {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+    }
+    .theme-transition .shuriken span {
+      font-family: "Shippori Mincho", "Noto Serif TC", serif;
+      font-size: clamp(120px, 22vmin, 260px);
+      font-weight: 600;
+      color: var(--moon);
+      text-shadow:
+        0 0 24px color-mix(in oklab, var(--moon) 70%, transparent),
+        0 0 60px color-mix(in oklab, var(--moon) 40%, transparent);
+      opacity: 0;
+      transform: scale(0.4) rotate(-180deg);
+      animation: kanji-flash 0.85s cubic-bezier(.34,1.56,.64,1) forwards;
+    }
+    @keyframes kanji-flash {
+      0%   { opacity: 0; transform: scale(0.4) rotate(-180deg); }
+      45%  { opacity: 1; transform: scale(1.05) rotate(0deg); }
+      55%  { opacity: 1; transform: scale(1.05) rotate(0deg); }
+      100% { opacity: 0; transform: scale(1.6) rotate(45deg); }
+    }
+    /* 全螢幕的紙幕翻轉，遮住瞬間的主題切換 */
+    .theme-transition .veil {
+      position: absolute; inset: 0;
+      background: var(--paper);
+      clip-path: polygon(-10% 0, -10% 0, -10% 100%, -10% 100%);
+      animation: veil-wipe 0.85s cubic-bezier(.7,0,.3,1) forwards;
+    }
+    @keyframes veil-wipe {
+      0%   { clip-path: polygon(-10% 0, -10% 0, -10% 100%, -10% 100%); }
+      45%  { clip-path: polygon(-10% 0, 110% 0, 110% 100%, -10% 100%); }
+      55%  { clip-path: polygon(-10% 0, 110% 0, 110% 100%, -10% 100%); }
+      100% { clip-path: polygon(110% 0, 110% 0, 110% 100%, 110% 100%); }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       重啟結界：滿屏 overlay，月印旋轉 + 軌道字 + 狀態文字
+       ═══════════════════════════════════════════════════════════ */
+    .restart-overlay {
+      position: fixed; inset: 0;
+      z-index: 10000;
+      background: color-mix(in oklab, var(--paper) 88%, transparent);
+      backdrop-filter: blur(14px) saturate(120%);
+      -webkit-backdrop-filter: blur(14px) saturate(120%);
+      display: none;
+      place-items: center;
+      flex-direction: column;
+      opacity: 0;
+    }
+    .restart-overlay.active {
+      display: grid;
+      animation: ro-fade-in 0.35s ease forwards;
+    }
+    .restart-overlay.complete {
+      animation: ro-fade-out 0.6s ease forwards;
+    }
+    @keyframes ro-fade-in  { to { opacity: 1; } }
+    @keyframes ro-fade-out { to { opacity: 0; } }
+
+    .restart-card {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 36px;
+      padding: 40px 64px;
+    }
+
+    .seal-stage {
+      position: relative;
+      width: 280px; height: 280px;
+      display: grid; place-items: center;
+    }
+
+    /* 中央方印 */
+    .seal-core {
+      width: 110px; height: 110px;
+      border-radius: 14px;
+      border: 3px solid var(--seal);
+      display: grid; place-items: center;
+      font-family: "Shippori Mincho", serif;
+      font-size: 64px;
+      color: var(--seal);
+      transform: rotate(-6deg);
+      background: color-mix(in oklab, var(--seal) 6%, transparent);
+      box-shadow:
+        0 0 0 0 color-mix(in oklab, var(--seal) 60%, transparent),
+        inset 0 0 24px color-mix(in oklab, var(--seal) 14%, transparent);
+      animation: seal-pulse 1.6s ease-in-out infinite;
+      z-index: 3;
+    }
+    @keyframes seal-pulse {
+      0%, 100% {
+        transform: rotate(-6deg) scale(1);
+        box-shadow:
+          0 0 0 0 color-mix(in oklab, var(--seal) 50%, transparent),
+          inset 0 0 24px color-mix(in oklab, var(--seal) 14%, transparent);
+      }
+      50% {
+        transform: rotate(-6deg) scale(1.06);
+        box-shadow:
+          0 0 30px 4px color-mix(in oklab, var(--seal) 50%, transparent),
+          inset 0 0 24px color-mix(in oklab, var(--seal) 24%, transparent);
+      }
+    }
+    .restart-overlay.complete .seal-core {
+      animation: seal-burst 0.6s ease forwards;
+    }
+    @keyframes seal-burst {
+      0%   { transform: rotate(-6deg) scale(1); opacity: 1; }
+      100% { transform: rotate(-6deg) scale(2.6); opacity: 0; }
+    }
+
+    /* 軌道環（虛線圈） */
+    .seal-orbit {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px dashed color-mix(in oklab, var(--moon) 60%, transparent);
+      animation: orbit-spin linear infinite;
+      z-index: 2;
+    }
+    .seal-orbit.o1 { width: 180px; height: 180px; animation-duration: 6s; }
+    .seal-orbit.o2 { width: 230px; height: 230px; animation-duration: 10s; animation-direction: reverse; border-color: color-mix(in oklab, var(--jade) 55%, transparent); }
+    .seal-orbit.o3 { width: 280px; height: 280px; animation-duration: 14s; border-style: dotted; border-color: color-mix(in oklab, var(--sakura) 50%, transparent); }
+    @keyframes orbit-spin { to { transform: rotate(360deg); } }
+
+    /* 軌道上的字符 */
+    .seal-orbit .glyph {
+      position: absolute;
+      top: -16px; left: 50%;
+      transform: translateX(-50%);
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--paper-3);
+      border: 1px solid var(--rule);
+      display: grid; place-items: center;
+      font-family: "Shippori Mincho", serif;
+      font-size: 14px;
+      color: var(--moon);
+      box-shadow: 0 2px 8px color-mix(in oklab, var(--ink) 10%, transparent);
+    }
+    .seal-orbit.o2 .glyph { color: var(--jade); }
+    .seal-orbit.o3 .glyph { color: var(--sakura); }
+
+    /* 中央發光月暈 */
+    .seal-glow {
+      position: absolute;
+      width: 240px; height: 240px;
+      border-radius: 50%;
+      background: radial-gradient(circle,
+        color-mix(in oklab, var(--moon) 22%, transparent) 0%,
+        transparent 65%);
+      animation: glow-breathe 2.4s ease-in-out infinite;
+      z-index: 1;
+    }
+    @keyframes glow-breathe {
+      0%, 100% { transform: scale(0.85); opacity: 0.55; }
+      50%      { transform: scale(1.05); opacity: 0.9; }
+    }
+
+    .restart-status {
+      font-family: "Shippori Mincho", "Noto Serif TC", serif;
+      font-size: 24px;
+      letter-spacing: 0.42em;
+      color: var(--ink);
+      text-indent: 0.42em;
+    }
+    .restart-sub {
+      font-family: "Klee One", "Zen Maru Gothic", serif;
+      font-size: 12px;
+      letter-spacing: 0.32em;
+      color: var(--ink-mute);
+      text-transform: uppercase;
+    }
+    .restart-bar {
+      width: 240px; height: 2px;
+      background: var(--rule);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .restart-bar::after {
+      content: "";
+      display: block;
+      width: 30%; height: 100%;
+      background: linear-gradient(90deg, transparent, var(--moon), transparent);
+      animation: restart-bar-slide 1.4s ease-in-out infinite;
+    }
+    @keyframes restart-bar-slide {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(440%); }
+    }
+
     @media (max-width: 820px) {
       .app { grid-template-columns: 220px 1fr; }
       .sidebar { padding: 16px 12px; }
@@ -1009,6 +1295,10 @@
           <span>CAST · LISTEN · REMEMBER</span>
         </div>
         <div class="topbar-actions">
+          <button class="server-pill" id="server-pill" data-state="up" title="點擊重啟 Yomi 伺服器">
+            <span class="led"></span>
+            <span id="server-pill-label">伺服器運行中</span>
+          </button>
           <button class="theme-pill" id="theme-toggle" title="切換日/夜主題">
             <span id="theme-icon-slot"></span>
             <span id="theme-label-slot">夜 · Night</span>
@@ -1165,6 +1455,7 @@ function renderMarkdown(src) {
 function recordTagFor(stage) {
   if (stage === 'done') return 'jade';
   if (stage === 'error') return 'seal';
+  if (stage === 'cancelled') return 'moon';
   if (stage === 'queued') return 'moon';
   return 'sakura';
 }
@@ -1177,6 +1468,7 @@ function stageLabel(stage) {
     summarizing: '凝練',
     done: '已封印',
     error: '崩印',
+    cancelled: '已止印',
   })[stage] || stage || '';
 }
 
@@ -1366,7 +1658,7 @@ function deriveView() {
   if (!state.currentMeeting) return 'idle';
   const s = state.currentMeeting.stage;
   if (s === 'done') return 'summary';
-  if (s === 'error') return 'error';
+  if (s === 'error' || s === 'cancelled') return 'error';
   return 'processing';
 }
 
@@ -1544,6 +1836,7 @@ function tplProcessing() {
     </div>
 
     <div class="controls">
+      <button class="control-btn danger" id="btn-cancel">中止這次處理</button>
       <button class="control-btn ghost" id="btn-back">回到首頁</button>
     </div>`;
 }
@@ -1571,7 +1864,7 @@ function tplSummary() {
 
       <div class="scroll-hd">
         <div style="min-width:0;flex:1">
-          <div class="scroll-title">${escapeHtml(m.title || '會議卷軸')}</div>
+          <div class="scroll-title" id="scroll-title" contenteditable="true" spellcheck="false" title="點擊編輯標題，Enter 儲存、Esc 取消">${escapeHtml(m.title || '會議卷軸')}</div>
           <div class="scroll-meta">
             ${meta.map((x, i) => `${i > 0 ? '<span class="dot">·</span>' : ''}<span>${escapeHtml(x)}</span>`).join('')}
           </div>
@@ -1713,6 +2006,8 @@ function wireStage() {
   // Processing / Error
   const btnBack = $('#btn-back');
   if (btnBack) btnBack.addEventListener('click', handleBackToIdle);
+  const btnCancel = $('#btn-cancel');
+  if (btnCancel) btnCancel.addEventListener('click', handleCancel);
 
   // Summary
   const tToggle = $('#transcript-toggle');
@@ -1724,6 +2019,22 @@ function wireStage() {
   if (btnDelete) btnDelete.addEventListener('click', handleDelete);
   const btnNew = $('#btn-new');
   if (btnNew) btnNew.addEventListener('click', handleBackToIdle);
+
+  const titleEl = $('#scroll-title');
+  if (titleEl) {
+    let original = titleEl.textContent;
+    titleEl.addEventListener('focus', () => { original = titleEl.textContent; });
+    titleEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); titleEl.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); titleEl.textContent = original; titleEl.blur(); }
+    });
+    titleEl.addEventListener('blur', async () => {
+      const next = titleEl.textContent.trim();
+      if (!next) { titleEl.textContent = original; return; }
+      if (next === original) return;
+      await handleRenameTitle(next, original, titleEl);
+    });
+  }
 }
 
 // ── Subsystems (timer, waveform, snippet) ──────────────────
@@ -1788,32 +2099,93 @@ function startSnippetCycle() {
 }
 
 // ── Handlers ───────────────────────────────────────────────
+// 瀏覽器端錄音，避免 macOS QuickTime 沙盒。
+// 優先選 audio/mp4 (Safari)，次選 audio/webm;codecs=opus (Chrome/Edge)，再來 audio/ogg
+const MIME_CANDIDATES = [
+  { mime: 'audio/mp4', ext: 'm4a' },
+  { mime: 'audio/mp4;codecs=mp4a.40.2', ext: 'm4a' },
+  { mime: 'audio/webm;codecs=opus', ext: 'webm' },
+  { mime: 'audio/webm', ext: 'webm' },
+  { mime: 'audio/ogg;codecs=opus', ext: 'ogg' },
+];
+function pickRecorderFormat() {
+  if (typeof MediaRecorder === 'undefined') return null;
+  for (const c of MIME_CANDIDATES) {
+    if (MediaRecorder.isTypeSupported(c.mime)) return c;
+  }
+  return { mime: '', ext: 'webm' };
+}
+
+let mediaRecorder = null;
+let mediaStream = null;
+let recordedChunks = [];
+let recordedExt = 'webm';
+
 async function handleStart() {
   if (state.recording) return;
+  const fmt = pickRecorderFormat();
+  if (!fmt) {
+    alert('這個瀏覽器不支援 MediaRecorder，請改用 Chrome / Safari / Edge 最新版。');
+    return;
+  }
   try {
-    const data = await api('/api/recording/start', { method: 'POST' });
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true }
+    });
+    mediaRecorder = fmt.mime ? new MediaRecorder(mediaStream, { mimeType: fmt.mime }) : new MediaRecorder(mediaStream);
+    recordedExt = fmt.ext;
+    recordedChunks = [];
+    mediaRecorder.addEventListener('dataavailable', e => {
+      if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+    });
+    mediaRecorder.start(1000);
     state.recording = true;
-    state.recordingStartedAt = data.startedAt || Date.now();
+    state.recordingStartedAt = Date.now();
     state.currentMeetingId = null;
     state.currentMeeting = null;
     render();
   } catch (e) {
-    alert('開始錄音失敗：' + e.message + '\n\n第一次使用時，macOS 會跳出麥克風與「自動化」權限請求，請允許 QuickTime Player 後重試。');
+    cleanupRecorder();
+    const reason = (e && e.name === 'NotAllowedError') ? '麥克風權限被拒。請到瀏覽器網址列旁邊的鎖頭圖示，把麥克風設成允許。' : (e.message || String(e));
+    alert('開始錄音失敗：' + reason);
   }
 }
 
+function cleanupRecorder() {
+  if (mediaStream) {
+    try { mediaStream.getTracks().forEach(t => t.stop()); } catch {}
+  }
+  mediaStream = null;
+  mediaRecorder = null;
+}
+
 async function handleStop() {
-  if (!state.recording) return;
+  if (!state.recording || !mediaRecorder) return;
   const btn = $('#btn-stop');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="dot"></span> 封存中…'; }
+
+  const stopped = new Promise(resolve => {
+    mediaRecorder.addEventListener('stop', resolve, { once: true });
+  });
+  try { mediaRecorder.stop(); } catch {}
+  await stopped;
+
+  const blob = new Blob(recordedChunks, { type: mediaRecorder?.mimeType || 'audio/webm' });
+  cleanupRecorder();
+  state.recording = false;
+  state.recordingStartedAt = null;
+
   try {
-    const data = await api('/api/recording/stop', { method: 'POST' });
-    state.recording = false;
-    state.recordingStartedAt = null;
+    const buf = await blob.arrayBuffer();
+    const data = await api('/api/meetings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream', 'X-Audio-Ext': recordedExt },
+      body: buf
+    });
     await openMeeting(data.meeting);
     await refreshList();
   } catch (e) {
-    alert('停止錄音失敗：' + e.message);
+    alert('上傳失敗：' + e.message);
     if (btn) { btn.disabled = false; btn.innerHTML = '<span class="dot"></span> 結束並封存'; }
   }
 }
@@ -1835,6 +2207,46 @@ async function handleUpload(file) {
   }
 }
 
+async function handleCancel() {
+  const id = state.currentMeetingId;
+  if (!id) return;
+  if (!confirm('確定要中止這次處理嗎？已建立的 NotebookLM 筆記不會被刪除。')) return;
+  const btn = $('#btn-cancel');
+  if (btn) { btn.disabled = true; btn.textContent = '中止中…'; }
+  try {
+    await api(`/api/meetings/${id}/cancel`, { method: 'POST' });
+    // 後端會 broadcast cancelled，SSE 會更新；保險起見 refresh 一次
+    const m = await api(`/api/meetings/${id}`);
+    await openMeeting(m);
+    await refreshList();
+  } catch (e) {
+    alert('中止失敗：' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '中止這次處理'; }
+  }
+}
+
+async function handleRenameTitle(next, prev, titleEl) {
+  const id = state.currentMeetingId;
+  if (!id) return;
+  titleEl.classList.add('saving');
+  try {
+    const r = await api(`/api/meetings/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: next })
+    });
+    if (state.currentMeeting) state.currentMeeting.title = r.meeting.title;
+    titleEl.textContent = r.meeting.title;
+    await refreshList();
+    if (r.warning) alert('已存到本地，但同步 NotebookLM 失敗：\n' + r.warning);
+  } catch (e) {
+    titleEl.textContent = prev;
+    alert('改名失敗：' + e.message);
+  } finally {
+    titleEl.classList.remove('saving');
+  }
+}
+
 async function handleSelect(id) {
   try {
     const m = await api(`/api/meetings/${id}`);
@@ -1846,15 +2258,17 @@ async function handleSelect(id) {
 
 async function handleDelete() {
   if (!state.currentMeetingId) return;
-  if (!confirm('確定解除此卷？此記憶將永遠湮滅。')) return;
+  if (!confirm('確定解除此卷？此記憶將永遠湮滅（NotebookLM 上的對應筆記也會一併刪除）。')) return;
   try {
-    await fetch(`/api/meetings/${state.currentMeetingId}`, { method: 'DELETE' });
+    const r = await fetch(`/api/meetings/${state.currentMeetingId}`, { method: 'DELETE' });
+    const j = await r.json().catch(() => ({}));
     state.currentMeetingId = null;
     state.currentMeeting = null;
     state.transcriptOpen = false;
     closeStream();
     await refreshList();
     render();
+    if (j.warning) alert('本地已刪除，但 NotebookLM 那邊刪除失敗：\n' + j.warning);
   } catch (e) {
     alert('刪除失敗：' + e.message);
   }
@@ -1875,7 +2289,7 @@ async function openMeeting(meeting) {
   state.transcriptOpen = false;
 
   // For finished meetings, fetch full content
-  if (meeting.stage === 'done' || meeting.stage === 'error') {
+  if (['done', 'error', 'cancelled'].includes(meeting.stage)) {
     try {
       const full = await api(`/api/meetings/${meeting.id}`);
       state.currentMeeting = full;
@@ -1916,6 +2330,16 @@ function openStream(id) {
       }
     } catch {}
   });
+  currentEventSource.addEventListener('cancelled', async (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      if (state.currentMeeting && state.currentMeetingId === id) {
+        state.currentMeeting = { ...state.currentMeeting, stage: 'cancelled', stageMsg: d.msg };
+        await refreshList();
+        render();
+      }
+    } catch {}
+  });
 }
 function closeStream() {
   if (currentEventSource) { currentEventSource.close(); currentEventSource = null; }
@@ -1931,11 +2355,104 @@ async function refreshList() {
   }
 }
 
+// ── 忍術主題切換 ────────────────────────────────────────────
+function playThemeTransition(nextTheme, applyFn) {
+  const el = document.getElementById('theme-transition');
+  const kanji = document.getElementById('theme-transition-kanji');
+  if (!el || !kanji) { applyFn(); return; }
+  // 切到夜模式顯示「夜」，切到日模式顯示「日」
+  kanji.textContent = nextTheme === 'night' ? '夜' : '日';
+  // 重新觸發動畫
+  el.classList.remove('active');
+  void el.offsetWidth;
+  el.classList.add('active');
+  // 雙刀交會的瞬間切換主題（veil 完全遮住畫面時）
+  setTimeout(applyFn, 420);
+  setTimeout(() => el.classList.remove('active'), 900);
+}
+
+// ── 重啟結界 ────────────────────────────────────────────────
+function showRestartOverlay(status, sub) {
+  const el = document.getElementById('restart-overlay');
+  const st = document.getElementById('restart-status');
+  const sb = document.getElementById('restart-sub');
+  if (!el) return;
+  el.classList.remove('complete');
+  el.classList.add('active');
+  if (st && status) st.textContent = status;
+  if (sb && sub) sb.textContent = sub;
+}
+function updateRestartOverlay(status, sub) {
+  const st = document.getElementById('restart-status');
+  const sb = document.getElementById('restart-sub');
+  if (st && status) st.textContent = status;
+  if (sb && sub) sb.textContent = sub;
+}
+function hideRestartOverlay() {
+  const el = document.getElementById('restart-overlay');
+  if (!el) return;
+  el.classList.add('complete');
+  setTimeout(() => { el.classList.remove('active', 'complete'); }, 700);
+}
+
+// ── Server health / restart ────────────────────────────────
+let serverState = 'up';
+function setServerState(s) {
+  serverState = s;
+  const pill = $('#server-pill');
+  const label = $('#server-pill-label');
+  if (!pill || !label) return;
+  pill.dataset.state = s;
+  label.textContent = ({ up: '伺服器運行中', down: '伺服器中斷', restarting: '重啟中…' })[s] || s;
+}
+async function pollHealth() {
+  try {
+    const r = await fetch('/api/health', { cache: 'no-store' });
+    if (!r.ok) throw new Error('bad');
+    if (serverState !== 'up') setServerState('up');
+  } catch {
+    if (serverState !== 'restarting') setServerState('down');
+  }
+}
+async function handleRestartServer() {
+  if (serverState === 'restarting') return;
+  if (!confirm('確定要重啟 Yomi 伺服器嗎？正在處理中的會議會被中斷。')) return;
+  setServerState('restarting');
+  showRestartOverlay('重啟結界中', 'CASTING · SEAL · REBIRTH');
+  try { await fetch('/api/restart', { method: 'POST', cache: 'no-store' }); } catch {}
+
+  // 三段式狀態：發動 → 等待 → 復活
+  const startedAt = Date.now();
+  const deadline = startedAt + 30000;
+  let phase = 0;
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 600));
+    const elapsed = Date.now() - startedAt;
+    if (elapsed > 1500 && phase < 1) { phase = 1; updateRestartOverlay('月引斷續', 'AWAITING · MOON · PULL'); }
+    if (elapsed > 6000 && phase < 2) { phase = 2; updateRestartOverlay('結界凝結', 'WEAVING · SEAL · KNOT'); }
+    try {
+      const r = await fetch('/api/health', { cache: 'no-store' });
+      if (r.ok) {
+        updateRestartOverlay('結界已成', 'AWAKENED');
+        setServerState('up');
+        await new Promise(r => setTimeout(r, 700));
+        hideRestartOverlay();
+        return;
+      }
+    } catch {}
+  }
+  setServerState('down');
+  hideRestartOverlay();
+  alert('伺服器重啟超過 30 秒沒回來。請在終端機跑 npm start 看看哪裡卡住。');
+}
+
 // ── Wire global controls ───────────────────────────────────
 function wireGlobal() {
   $('#theme-toggle').addEventListener('click', () => {
-    applyTheme(state.theme === 'night' ? 'day' : 'night');
+    const next = state.theme === 'night' ? 'day' : 'night';
+    playThemeTransition(next, () => applyTheme(next));
   });
+  $('#server-pill').addEventListener('click', handleRestartServer);
 
   // Settings dropdown
   const settingsBtn = $('#settings-btn');
@@ -1999,19 +2516,37 @@ async function init() {
   renderMascotPicker();
   wireGlobal();
 
-  try {
-    const s = await api('/api/recording/status');
-    if (s.active) {
-      state.recording = true;
-      state.recordingStartedAt = s.startedAt || Date.now();
-    }
-  } catch {}
-
   await refreshList();
   render();
+
+  pollHealth();
+  setInterval(pollHealth, 4000);
 }
 
 init();
 </script>
+  <!-- 忍術主題切換 -->
+  <div class="theme-transition" id="theme-transition" aria-hidden="true">
+    <div class="veil"></div>
+    <div class="blade b1"></div>
+    <div class="blade b2"></div>
+    <div class="shuriken"><span id="theme-transition-kanji">忍</span></div>
+  </div>
+
+  <!-- 重啟結界 -->
+  <div class="restart-overlay" id="restart-overlay" aria-hidden="true">
+    <div class="restart-card">
+      <div class="seal-stage">
+        <div class="seal-glow"></div>
+        <div class="seal-orbit o3"><span class="glyph">月</span></div>
+        <div class="seal-orbit o2"><span class="glyph">讀</span></div>
+        <div class="seal-orbit o1"><span class="glyph">結</span></div>
+        <div class="seal-core">印</div>
+      </div>
+      <div class="restart-status" id="restart-status">重啟結界中</div>
+      <div class="restart-bar"></div>
+      <div class="restart-sub" id="restart-sub">CASTING · SEAL · REBIRTH</div>
+    </div>
+  </div>
 </body>
 </html>

@@ -17,6 +17,22 @@ const NLM_BIN = process.env.NLM_BIN || 'nlm';
 const state = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
 const save = () => fs.writeFileSync(DATA_FILE, JSON.stringify(state, null, 2));
 
+// 啟動恢復：上次跑到一半（非 done / error / cancelled）的會議標記為 error
+const TERMINAL_STAGES = new Set(['done', 'error', 'cancelled']);
+let recovered = 0;
+for (const m of state.meetings) {
+  if (!TERMINAL_STAGES.has(m.stage)) {
+    m.stage = 'error';
+    m.stageMsg = '伺服器重啟導致工作中斷，請刪除後重新上傳';
+    m.error = m.stageMsg;
+    recovered++;
+  }
+}
+if (recovered) { save(); console.log(`已恢復 ${recovered} 筆中斷的會議為 error`); }
+
+// 追蹤每個 meeting 當下 spawn 出去的 child process（取消用）
+const activeProcs = {};
+
 // ---------- SSE ----------
 const sseClients = {};
 function broadcast(id, event, data) {
@@ -32,19 +48,33 @@ function pushStage(meeting, stage, msg) {
 }
 
 // ---------- nlm wrappers ----------
-function run(cmd, args, { input } = {}) {
+function run(cmd, args, { input, onProc } = {}) {
   return new Promise((resolve, reject) => {
     const p = spawn(cmd, args, { stdio: ['pipe', 'pipe', 'pipe'] });
+    if (onProc) onProc(p);
     let out = '', err = '';
     p.stdout.on('data', d => out += d.toString());
     p.stderr.on('data', d => err += d.toString());
-    p.on('close', code => {
+    p.on('close', (code, signal) => {
       if (code === 0) resolve({ stdout: out, stderr: err });
-      else reject(new Error(`${cmd} ${args.join(' ')} → exit ${code}\n${err || out}`));
+      else reject(new Error(`${cmd} ${args.join(' ')} → exit ${code ?? 'signal:' + signal}\n${err || out}`));
     });
     p.on('error', reject);
     if (input) p.stdin.end(input);
     else p.stdin.end();
+  });
+}
+
+// 跑 nlm 指令並把 child 註冊到 activeProcs，方便外部取消
+function runForMeeting(meetingId, cmd, args, opts = {}) {
+  return run(cmd, args, {
+    ...opts,
+    onProc: p => { activeProcs[meetingId] = p; }
+  }).finally(() => {
+    if (activeProcs[meetingId] && !activeProcs[meetingId].killed) {
+      // child 正常結束，不清空（保留給其他指令覆蓋）
+    }
+    delete activeProcs[meetingId];
   });
 }
 
@@ -79,18 +109,24 @@ function parseId(stdout) {
 }
 
 // ---------- Pipeline ----------
+function checkCancelled(meeting) {
+  if (meeting.cancelled) throw new Error('__CANCELLED__');
+}
+
 async function processMeeting(meeting) {
   const audioPath = path.join(RECORDINGS_DIR, meeting.audioFile);
   try {
+    checkCancelled(meeting);
     pushStage(meeting, 'creating', '建立 NotebookLM 筆記中…');
-    const createRes = await run(NLM_BIN, ['notebook', 'create', meeting.title]);
+    const createRes = await runForMeeting(meeting.id, NLM_BIN, ['notebook', 'create', meeting.title]);
     const notebookId = parseId(createRes.stdout);
     if (!notebookId) throw new Error('無法解析 notebook id: ' + createRes.stdout);
     meeting.notebookId = notebookId;
     save();
 
+    checkCancelled(meeting);
     pushStage(meeting, 'uploading', '上傳音檔到 NotebookLM（請耐心等候，1 小時錄音約需 5 分鐘）…');
-    const addRes = await run(NLM_BIN, [
+    const addRes = await runForMeeting(meeting.id, NLM_BIN, [
       'source', 'add', notebookId,
       '--file', audioPath,
       '--wait', '--wait-timeout', '1800'
@@ -99,10 +135,11 @@ async function processMeeting(meeting) {
     meeting.sourceId = sourceId;
     save();
 
+    checkCancelled(meeting);
     pushStage(meeting, 'transcribing', '取得逐字稿…');
     if (sourceId) {
       try {
-        const tRes = await run(NLM_BIN, ['source', 'get', sourceId]);
+        const tRes = await runForMeeting(meeting.id, NLM_BIN, ['source', 'get', sourceId]);
         meeting.transcript = extractContent(tRes.stdout);
       } catch (e) {
         meeting.transcript = `(無法取得逐字稿: ${e.message})`;
@@ -110,6 +147,7 @@ async function processMeeting(meeting) {
       save();
     }
 
+    checkCancelled(meeting);
     pushStage(meeting, 'summarizing', '產生摘要與反問問題…');
     const prompt = `你是專業會議助理。請完整參考此會議錄音 source，輸出以下 markdown 區塊，**只能輸出這些區塊，不要前後加任何說明**：
 
@@ -130,52 +168,32 @@ async function processMeeting(meeting) {
 1. ...
 2. ...
 3. ...`;
-    const qRes = await run(NLM_BIN, ['notebook', 'query', notebookId, prompt]);
+    const qRes = await runForMeeting(meeting.id, NLM_BIN, ['notebook', 'query', notebookId, prompt]);
     meeting.summary = extractAnswer(qRes.stdout);
     meeting.completedAt = new Date().toISOString();
     pushStage(meeting, 'done', '完成');
     broadcast(meeting.id, 'done', { meeting });
   } catch (e) {
-    meeting.error = String(e.message || e);
-    pushStage(meeting, 'error', meeting.error);
-    broadcast(meeting.id, 'error', { msg: meeting.error });
+    const raw = String(e.message || e);
+    if (raw.includes('__CANCELLED__') || meeting.cancelled) {
+      pushStage(meeting, 'cancelled', '已取消');
+      broadcast(meeting.id, 'cancelled', { msg: '已取消' });
+      return;
+    }
+    // 攔截 NLM 常見的「無法處理音檔」訊號（無語言內容、格式不支援等）
+    let friendly = raw;
+    if (/no.*language|language.*not.*detected|no.*content|偵測不到|沒有內容/i.test(raw)) {
+      friendly = 'NotebookLM 無法從音檔偵測到語言內容（可能太短、太雜訊、或未說話）。請重新錄音或上傳。\n\n原始訊息：\n' + raw;
+    } else if (/timeout|逾時/i.test(raw)) {
+      friendly = 'NotebookLM 處理逾時。可能音檔過長或服務繁忙，請稍後重試。\n\n原始訊息：\n' + raw;
+    }
+    meeting.error = friendly;
+    pushStage(meeting, 'error', friendly);
+    broadcast(meeting.id, 'error', { msg: friendly });
   }
 }
 
-// ---------- QuickTime 錄音（macOS 原生，osascript 控制） ----------
-let recordingState = { active: false, startedAt: null };
-
-async function startQuickTimeRecording() {
-  if (recordingState.active) throw new Error('已在錄音中');
-  const script = `
-tell application "QuickTime Player"
-  activate
-  set newRecording to new audio recording
-  tell newRecording to start
-end tell`;
-  await run('osascript', ['-e', script]);
-  recordingState = { active: true, startedAt: Date.now() };
-}
-
-async function stopQuickTimeRecording() {
-  if (!recordingState.active) throw new Error('沒有正在進行的錄音');
-  const id = state.nextId++;
-  const audioFile = `${id}.mov`;
-  const outputPath = path.join(RECORDINGS_DIR, audioFile);
-  const script = `
-tell application "QuickTime Player"
-  if (count of documents) is 0 then error "QuickTime 沒有開啟的錄音文件"
-  tell document 1 to stop
-  delay 0.3
-  save document 1 in (POSIX file "${outputPath}")
-  close document 1 saving no
-end tell`;
-  await run('osascript', ['-e', script]);
-  recordingState = { active: false, startedAt: null };
-  return { id, audioFile };
-}
-
-// 從音檔建立會議卡並啟動 pipeline（錄音停止 / 上傳檔案共用）
+// 從音檔建立會議卡並啟動 pipeline（上傳檔案 / 瀏覽器錄音共用）
 function createMeetingForFile(id, audioFile, audioSize) {
   const now = new Date();
   const ts = now.toLocaleString('zh-TW', { hour12: false }).replace(/\//g, '-');
@@ -204,6 +222,29 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/health') {
+    return sendJson(res, 200, {
+      ok: true,
+      pid: process.pid,
+      uptime: Math.floor(process.uptime()),
+      activePipelines: Object.keys(activeProcs).length
+    });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/restart') {
+    sendJson(res, 200, { ok: true });
+    // 留一點時間給 response 送出，然後 detached spawn 重啟腳本，自己退出讓 npm run restart 接手
+    setTimeout(() => {
+      const child = spawn('bash', ['-lc', 'sleep 0.5 && cd "' + ROOT + '" && npm run restart'], {
+        detached: true,
+        stdio: 'ignore'
+      });
+      child.unref();
+      setTimeout(() => process.exit(0), 300);
+    }, 100);
+    return;
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/meetings') {
     return sendJson(res, 200, state.meetings.map(m => ({
       id: m.id, title: m.title, stage: m.stage, stageMsg: m.stageMsg,
@@ -218,15 +259,83 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, m);
   }
 
+  const cancelMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/cancel$/);
+  if (req.method === 'POST' && cancelMatch) {
+    const id = Number(cancelMatch[1]);
+    const m = state.meetings.find(x => x.id === id);
+    if (!m) return sendJson(res, 404, { error: 'not found' });
+    if (TERMINAL_STAGES.has(m.stage)) {
+      return sendJson(res, 200, { ok: true, alreadyDone: true });
+    }
+    m.cancelled = true;
+    const proc = activeProcs[id];
+    if (proc && !proc.killed) {
+      try { proc.kill('SIGTERM'); } catch {}
+      setTimeout(() => { try { if (!proc.killed) proc.kill('SIGKILL'); } catch {} }, 2000);
+    }
+    pushStage(m, 'cancelled', '已取消');
+    broadcast(id, 'cancelled', { msg: '已取消' });
+    return sendJson(res, 200, { ok: true });
+  }
+
+  if (req.method === 'PATCH' && idMatch) {
+    const id = Number(idMatch[1]);
+    const m = state.meetings.find(x => x.id === id);
+    if (!m) return sendJson(res, 404, { error: 'not found' });
+    const chunks = [];
+    req.on('data', c => chunks.push(c));
+    req.on('end', async () => {
+      let body;
+      try { body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); }
+      catch { return sendJson(res, 400, { error: 'invalid json' }); }
+      const title = String(body.title || '').trim();
+      if (!title) return sendJson(res, 400, { error: '標題不可為空' });
+      const prev = m.title;
+      m.title = title;
+      save();
+      if (m.notebookId) {
+        try {
+          await run(NLM_BIN, ['notebook', 'rename', m.notebookId, title]);
+          sendJson(res, 200, { meeting: m, synced: true });
+        } catch (e) {
+          // 本地已存，NotebookLM 那邊失敗就回 warning，不 rollback
+          sendJson(res, 200, { meeting: m, synced: false, warning: String(e.message || e) });
+        }
+      } else {
+        sendJson(res, 200, { meeting: m, synced: false });
+      }
+    });
+    return;
+  }
+
   if (req.method === 'DELETE' && idMatch) {
     const id = Number(idMatch[1]);
     const idx = state.meetings.findIndex(x => x.id === id);
     if (idx === -1) return sendJson(res, 404, { error: 'not found' });
     const m = state.meetings[idx];
+
+    // 若還在跑就先取消，停掉子程序
+    if (!TERMINAL_STAGES.has(m.stage)) {
+      m.cancelled = true;
+      const proc = activeProcs[id];
+      if (proc && !proc.killed) {
+        try { proc.kill('SIGTERM'); } catch {}
+      }
+    }
+
     state.meetings.splice(idx, 1);
     save();
     try { fs.unlinkSync(path.join(RECORDINGS_DIR, m.audioFile)); } catch {}
-    return sendJson(res, 200, { ok: true });
+
+    // 連動刪除 NotebookLM 筆記（如果建立過）
+    const notebookId = m.notebookId;
+    if (notebookId) {
+      run(NLM_BIN, ['notebook', 'delete', notebookId, '--confirm'])
+        .then(() => sendJson(res, 200, { ok: true, nlmDeleted: true }))
+        .catch(e => sendJson(res, 200, { ok: true, nlmDeleted: false, warning: String(e.message || e) }));
+      return;
+    }
+    return sendJson(res, 200, { ok: true, nlmDeleted: false });
   }
 
   if (req.method === 'POST' && url.pathname === '/api/meetings') {
@@ -248,33 +357,6 @@ const server = http.createServer((req, res) => {
       sendJson(res, 200, { id, meeting });
       processMeeting(meeting);
     });
-    return;
-  }
-
-  if (req.method === 'GET' && url.pathname === '/api/recording/status') {
-    return sendJson(res, 200, {
-      active: recordingState.active,
-      startedAt: recordingState.startedAt,
-      elapsedSec: recordingState.active ? Math.floor((Date.now() - recordingState.startedAt) / 1000) : 0
-    });
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/recording/start') {
-    startQuickTimeRecording()
-      .then(() => sendJson(res, 200, { ok: true, startedAt: recordingState.startedAt }))
-      .catch(e => sendJson(res, 500, { error: String(e.message || e) }));
-    return;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/recording/stop') {
-    stopQuickTimeRecording()
-      .then(({ id, audioFile }) => {
-        const stats = fs.statSync(path.join(RECORDINGS_DIR, audioFile));
-        const meeting = createMeetingForFile(id, audioFile, stats.size);
-        sendJson(res, 200, { id, meeting });
-        processMeeting(meeting);
-      })
-      .catch(e => sendJson(res, 500, { error: String(e.message || e) }));
     return;
   }
 
