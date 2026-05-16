@@ -48,6 +48,24 @@ function run(cmd, args, { input } = {}) {
   });
 }
 
+// 從 nlm 的 JSON 輸出取出指定欄位（會嘗試頂層 / value / 陣列第一筆）
+function extractField(stdout, fields) {
+  const s = stdout.trim();
+  try {
+    const j = JSON.parse(s);
+    const candidates = [j, j?.value, Array.isArray(j) ? j[0] : null, Array.isArray(j) ? j[0]?.value : null];
+    for (const c of candidates) {
+      if (!c) continue;
+      for (const f of fields) {
+        if (typeof c[f] === 'string') return c[f].trim();
+      }
+    }
+  } catch {}
+  return s;
+}
+const extractAnswer = s => extractField(s, ['answer']);
+const extractContent = s => extractField(s, ['content', 'transcript', 'text']);
+
 // 解析 nlm 輸出。優先 JSON，否則用 regex 抓 ID。
 function parseId(stdout) {
   const s = stdout.trim();
@@ -85,7 +103,7 @@ async function processMeeting(meeting) {
     if (sourceId) {
       try {
         const tRes = await run(NLM_BIN, ['source', 'get', sourceId]);
-        meeting.transcript = tRes.stdout.trim();
+        meeting.transcript = extractContent(tRes.stdout);
       } catch (e) {
         meeting.transcript = `(無法取得逐字稿: ${e.message})`;
       }
@@ -113,7 +131,7 @@ async function processMeeting(meeting) {
 2. ...
 3. ...`;
     const qRes = await run(NLM_BIN, ['notebook', 'query', notebookId, prompt]);
-    meeting.summary = qRes.stdout.trim();
+    meeting.summary = extractAnswer(qRes.stdout);
     meeting.completedAt = new Date().toISOString();
     pushStage(meeting, 'done', '完成');
     broadcast(meeting.id, 'done', { meeting });

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "prestart": "nlm login --check >/dev/null 2>&1 || nlm login",
     "start": "node server.js",
     "stop": "lsof -ti:${PORT:-3748} | xargs kill -9 2>/dev/null || true",
     "restart": "npm run stop && npm start"

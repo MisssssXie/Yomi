@@ -483,6 +483,7 @@
       overflow-y: auto;
       min-height: 0;
     }
+    .stage-body > * { flex-shrink: 0; }
     .stage-body::-webkit-scrollbar { width: 6px; }
     .stage-body::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
 
@@ -777,6 +778,51 @@
       font-family: "Shippori Mincho", "Noto Serif TC", serif;
     }
 
+    /* markdown rendered inside summary */
+    .scroll-section .md { white-space: normal; }
+    .scroll-section .md > * + * { margin-top: 10px; }
+    .scroll-section .md h2 {
+      margin: 18px 0 6px;
+      font-family: "Shippori Mincho", "Noto Serif TC", serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: 0.12em;
+      padding-left: 10px;
+      border-left: 3px solid var(--moon);
+      line-height: 1.4;
+    }
+    .scroll-section .md h2:first-child { margin-top: 0; }
+    .scroll-section .md p { margin: 0; }
+    .scroll-section .md ul, .scroll-section .md ol {
+      margin: 0; padding-left: 1.4em;
+    }
+    .scroll-section .md li { margin: 4px 0; }
+    .scroll-section .md ul li::marker { color: var(--moon); }
+    .scroll-section .md ol li::marker { color: var(--jade); font-weight: 600; }
+    .scroll-section .md table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      background: color-mix(in oklab, var(--moon) 5%, transparent);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .scroll-section .md table th,
+    .scroll-section .md table td {
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--rule);
+      vertical-align: top;
+    }
+    .scroll-section .md table th {
+      font-weight: 600;
+      color: var(--ink-soft);
+      background: color-mix(in oklab, var(--moon) 10%, transparent);
+      letter-spacing: 0.06em;
+    }
+    .scroll-section .md table tr:last-child td { border-bottom: none; }
+
     /* delete subtle button */
     .scroll-card .scroll-actions {
       position: absolute;
@@ -1053,6 +1099,68 @@ function fmtDateTime(iso) {
 }
 function escapeHtml(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderMarkdown(src) {
+  if (!src) return '';
+  const lines = String(src).replace(/\r\n?/g, '\n').split('\n');
+  let html = '';
+  let i = 0;
+  const inline = s => escapeHtml(s)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+  while (i < lines.length) {
+    const line = lines[i];
+    if (/^##\s+/.test(line)) {
+      html += `<h2>${inline(line.replace(/^##\s+/, ''))}</h2>`;
+      i++; continue;
+    }
+    if (/^#\s+/.test(line)) {
+      html += `<h2>${inline(line.replace(/^#\s+/, ''))}</h2>`;
+      i++; continue;
+    }
+    if (/^\|/.test(line) && i + 1 < lines.length && /^\|[\s\-:|]+\|?\s*$/.test(lines[i + 1])) {
+      const headers = line.replace(/^\||\|$/g, '').split('|').map(s => s.trim());
+      i += 2;
+      const rows = [];
+      while (i < lines.length && /^\|/.test(lines[i])) {
+        const cells = lines[i].replace(/^\||\|$/g, '').split('|').map(s => s.trim());
+        if (cells.every(c => /^\.{2,}$|^$/.test(c))) { i++; continue; }
+        rows.push(cells); i++;
+      }
+      html += '<table><thead><tr>'
+        + headers.map(h => `<th>${inline(h)}</th>`).join('')
+        + '</tr></thead><tbody>'
+        + rows.map(r => '<tr>' + r.map(c => `<td>${inline(c)}</td>`).join('') + '</tr>').join('')
+        + '</tbody></table>';
+      continue;
+    }
+    if (/^[-*]\s+/.test(line)) {
+      html += '<ul>';
+      while (i < lines.length && /^[-*]\s+/.test(lines[i])) {
+        html += `<li>${inline(lines[i].replace(/^[-*]\s+/, ''))}</li>`;
+        i++;
+      }
+      html += '</ul>'; continue;
+    }
+    if (/^\d+\.\s+/.test(line)) {
+      html += '<ol>';
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
+        html += `<li>${inline(lines[i].replace(/^\d+\.\s+/, ''))}</li>`;
+        i++;
+      }
+      html += '</ol>'; continue;
+    }
+    if (!line.trim()) { i++; continue; }
+    let para = line;
+    i++;
+    while (i < lines.length && lines[i].trim() && !/^(#{1,2}\s|[-*]\s|\d+\.\s|\|)/.test(lines[i])) {
+      para += ' ' + lines[i]; i++;
+    }
+    html += `<p>${inline(para)}</p>`;
+  }
+  return html;
 }
 function recordTagFor(stage) {
   if (stage === 'done') return 'jade';
@@ -1483,7 +1591,7 @@ function tplSummary() {
 
       <div class="scroll-section">
         <h4>月 讀 之 言</h4>
-        <div class="body-text">${escapeHtml(m.summary || '（尚未產生摘要）')}</div>
+        <div class="body-text md">${m.summary ? renderMarkdown(m.summary) : '（尚未產生摘要）'}</div>
       </div>
 
       <a class="transcript-link ${tOpen ? 'open' : ''}" id="transcript-toggle">
