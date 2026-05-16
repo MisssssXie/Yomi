@@ -520,28 +520,43 @@
     .stage-body::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
 
     /* ── Idle view：鋪滿視口、禁止滾動，依高度自適應 ── */
+    /* 分三組節奏：標題（eyebrow + en）／焦點（mascot + timer）／互動（helper + dropzone + controls） */
     .stage-body.idle {
       overflow: hidden;
       justify-content: center;
-      padding: clamp(12px, 2.4vh, 28px) 32px;
-      gap: clamp(6px, 1.4vh, 18px);
+      padding: clamp(20px, 4vh, 40px) 32px;
+      gap: 0;   /* 用 margin-top 控制節奏，避免 flex gap 把每塊都均勻拉開 */
     }
-    .stage-body.idle .eyebrow      { margin-top: 0;  font-size: clamp(20px, 2.6vh, 28px); }
-    .stage-body.idle .eyebrow-en   { margin-top: 0; }
+    /* 標題群 */
+    .stage-body.idle .eyebrow      { margin: 0; font-size: clamp(22px, 2.8vh, 28px); }
+    .stage-body.idle .eyebrow-en   { margin-top: 6px; }
+    /* 焦點群：mascot 與 mascot 下方的 timer 緊貼 */
     .stage-body.idle .mascot-wrap  {
-      width: min(280px, 34vh);
-      height: min(280px, 34vh);
-      margin-top: 0;
+      width:  min(260px, 30vh);
+      height: min(260px, 30vh);
+      margin-top: clamp(14px, 3vh, 32px);
     }
     .stage-body.idle .mascot       {
-      width:  min(168px, 20.5vh);
-      height: min(168px, 20.5vh);
+      width:  min(160px, 19vh);
+      height: min(160px, 19vh);
     }
-    .stage-body.idle .timer        { font-size: clamp(34px, 5vh, 56px); margin-top: 0; }
-    .stage-body.idle .helper       { margin-top: 0; line-height: 1.65; font-size: clamp(12px, 1.7vh, 14px); }
-    .stage-body.idle .dropzone     { margin-top: 0; padding: clamp(8px, 1.4vh, 14px) 18px; }
-    .stage-body.idle .controls     { margin-top: 0; }
-    .stage-body.idle .ornament     { margin-top: clamp(2px, 1vh, 18px); }
+    .stage-body.idle .timer        {
+      font-size: clamp(32px, 4.6vh, 52px);
+      margin-top: clamp(2px, 0.6vh, 6px);
+    }
+    /* 互動群：helper / dropzone / controls 互相靠近，但與焦點群分明 */
+    .stage-body.idle .helper       {
+      margin-top: clamp(18px, 3.6vh, 32px);
+      line-height: 1.85;
+      font-size: clamp(13px, 1.7vh, 14px);
+    }
+    .stage-body.idle .dropzone     {
+      margin-top: clamp(10px, 1.8vh, 16px);
+      padding: clamp(9px, 1.4vh, 14px) 18px;
+    }
+    .stage-body.idle .controls     { margin-top: clamp(12px, 2.2vh, 20px); }
+    /* 月影之印底飾在待機畫面隱去，避免畫面元素過多顯擠 */
+    .stage-body.idle .ornament     { display: none; }
 
     .eyebrow {
       font-family: "Klee One", "Shippori Mincho", "Noto Serif TC", serif;
