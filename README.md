@@ -2,9 +2,9 @@
 
 > 把錄音封進卷宗，讓月讀替你閱讀。
 
-| 待機 · 等你錄音（白天） | 已封印的卷宗（夜間） |
-| :---: | :---: |
-| ![Yomi 待機畫面](docs/yomi-idle.png) | ![Yomi 摘要畫面](docs/yomi-summary.png) |
+| 待機 · 等你錄音 | 月讀 · 閱讀中 | 已封印的卷宗 |
+| :---: | :---: | :---: |
+| ![Yomi 待機畫面](docs/yomi-idle.png) | ![Yomi 處理中畫面](docs/yomi-processing.png) | ![Yomi 摘要畫面](docs/yomi-summary.png) |
 
 一個跑在自己電腦上的本地 web app：用瀏覽器原生錄音（或拖音檔進來）→ 自動丟給 NotebookLM → 拿回逐字稿與摘要 → 變成你私人的可搜尋卷宗。
 
