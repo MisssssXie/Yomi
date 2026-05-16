@@ -43,10 +43,12 @@ claude
 進到 Claude Code 之後輸入：
 
 ```
-/setup
+/setup-yomi
 ```
 
 Claude 會幫你逐步檢查環境、補裝缺的東西、登入 NotebookLM、啟動 server，全程跟你對話確認。
+
+> 註：`/setup-yomi` 是這個 repo 自帶的 [project-level slash command](./.claude/commands/setup-yomi.md)，只在 `cd Yomi` 之後啟動的 Claude Code 才看得到。
 
 ## 手動安裝
 
