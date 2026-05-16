@@ -1,0 +1,1909 @@
+<!doctype html>
+<html lang="zh-Hant" data-theme="day">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Yomi · 月讀</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=Shippori+Mincho:wght@400;500;600;700&family=Zen+Maru+Gothic:wght@400;500;700&family=Noto+Serif+TC:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ──────────────────────────────────────────────────────────
+       Yomi · cute-professional shinobi aesthetic
+       palette tokens are set on :root via data-theme
+       ────────────────────────────────────────────────────────── */
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    :root {
+      /* default — "washi" daylight palette */
+      --ink:        #2a2440;
+      --ink-soft:   #6b6480;
+      --ink-mute:   #a39db5;
+      --paper:      #f5efe1;
+      --paper-2:    #ede4d0;
+      --paper-3:    #fbf7ec;
+      --moon:       #d9a441;
+      --moon-soft:  #e8c875;
+      --sakura:     #d98aa0;
+      --jade:       #6fa48a;
+      --seal:       #c14a4a;
+      --rule:       rgba(42,36,64,0.12);
+      --shadow:     0 1px 0 rgba(255,255,255,.7) inset,
+                    0 1px 2px rgba(42,36,64,.08),
+                    0 12px 30px -16px rgba(42,36,64,.25);
+    }
+
+    :root[data-theme="night"] {
+      /* night — "tsukimi" moon-viewing palette */
+      --ink:        #f3eada;
+      --ink-soft:   #c3bca8;
+      --ink-mute:   #7e7a92;
+      --paper:      #14132a;
+      --paper-2:    #0c0b1d;
+      --paper-3:    #1c1b34;
+      --moon:       #f0c674;
+      --moon-soft:  #ffd687;
+      --sakura:     #e89cb3;
+      --jade:       #8cc4a5;
+      --seal:       #e87a7a;
+      --rule:       rgba(243,234,218,0.10);
+      --shadow:     0 1px 0 rgba(255,255,255,.05) inset,
+                    0 1px 2px rgba(0,0,0,.4),
+                    0 12px 30px -10px rgba(0,0,0,.55);
+    }
+
+    html, body, #root {
+      margin: 0; padding: 0;
+      height: 100%;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Zen Maru Gothic", "Shippori Mincho", ui-sans-serif, system-ui, -apple-system, "PingFang TC", sans-serif;
+      font-feature-settings: "palt";
+      letter-spacing: 0.01em;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    /* paper-grain backdrop */
+    body::before {
+      content: "";
+      position: fixed; inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background:
+        radial-gradient(1200px 800px at 80% -10%, color-mix(in oklab, var(--moon) 18%, transparent), transparent 60%),
+        radial-gradient(900px 700px at 8% 110%, color-mix(in oklab, var(--sakura) 14%, transparent), transparent 60%),
+        repeating-linear-gradient(0deg, transparent 0 3px, color-mix(in oklab, var(--ink) 3%, transparent) 3px 4px);
+      background-blend-mode: multiply;
+      opacity: .9;
+    }
+
+    /* ── App shell ── */
+    .app {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 296px 1fr;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      padding: 22px 18px 18px;
+      gap: 18px;
+      border-right: 1px solid var(--rule);
+      background: linear-gradient(180deg, color-mix(in oklab, var(--paper) 96%, var(--paper-2)) 0%, var(--paper) 80%);
+      min-height: 0;
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; padding: 2px 4px; }
+    .brand-mark {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, var(--moon-soft), var(--moon) 60%, color-mix(in oklab, var(--moon) 60%, var(--ink)));
+      box-shadow: 0 0 0 1px color-mix(in oklab, var(--moon) 60%, transparent),
+                  0 6px 16px -8px color-mix(in oklab, var(--moon) 80%, transparent);
+      position: relative;
+    }
+    .brand-mark::after {
+      content: ""; position: absolute; inset: 4px 0 4px 6px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 80% 50%, transparent 38%, color-mix(in oklab, var(--paper) 70%, transparent) 40%);
+    }
+    .brand-name {
+      font-family: "Klee One", "Shippori Mincho", "Noto Serif TC", serif;
+      font-size: 22px; font-weight: 600;
+      letter-spacing: 0.04em;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--ink);
+    }
+    .brand-name .kanji-mark {
+      font-family: "Klee One", "Shippori Mincho", serif;
+      font-weight: 600;
+      font-size: 22px;
+      line-height: 1;
+      color: var(--moon);
+      letter-spacing: 0;
+      font-style: normal;
+    }
+    .brand-sub {
+      font-size: 10.5px; letter-spacing: 0.32em;
+      color: var(--ink-soft);
+      margin-top: 4px;
+    }
+
+    .new-btn {
+      appearance: none; border: 0;
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 14px;
+      border-radius: 12px;
+      background: var(--ink);
+      color: var(--paper);
+      font-family: inherit; font-size: 14px; font-weight: 500;
+      cursor: pointer;
+      box-shadow: 0 6px 14px -8px color-mix(in oklab, var(--ink) 80%, transparent);
+      transition: transform .12s ease, box-shadow .12s ease;
+    }
+    .new-btn:hover { transform: translateY(-1px); }
+    .new-btn .plus {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: var(--moon);
+      color: var(--ink);
+      display: grid; place-items: center;
+      font-size: 14px; font-weight: 700; line-height: 1;
+    }
+    .new-btn .kbd {
+      margin-left: auto;
+      font-size: 11px;
+      opacity: 0.6;
+    }
+
+    .search {
+      position: relative;
+    }
+    .search input {
+      width: 100%;
+      padding: 9px 12px 9px 32px;
+      border-radius: 10px;
+      border: 1px solid var(--rule);
+      background: color-mix(in oklab, var(--paper-3) 80%, transparent);
+      color: var(--ink);
+      font-family: inherit; font-size: 13px;
+      outline: none;
+    }
+    .search input::placeholder { color: var(--ink-mute); }
+    .search input:focus { border-color: color-mix(in oklab, var(--ink) 25%, transparent); }
+    .search-icon {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      color: var(--ink-mute); pointer-events: none;
+      display: grid; place-items: center;
+    }
+
+    .section-h {
+      display: flex; align-items: center; justify-content: space-between;
+      font-family: "Shippori Mincho", "Noto Serif TC", serif;
+      font-size: 12px; letter-spacing: 0.28em;
+      color: var(--ink-soft);
+      text-transform: uppercase;
+      padding: 2px 4px;
+    }
+    .section-h .tag-cn { font-family: "Shippori Mincho", serif; letter-spacing: 0.5em; }
+
+    .records {
+      flex: 1; overflow-y: auto; min-height: 0;
+      margin: -4px -8px;
+      padding: 4px 8px;
+      display: flex; flex-direction: column; gap: 6px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--rule) transparent;
+    }
+    .records::-webkit-scrollbar { width: 6px; }
+    .records::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
+
+    .record {
+      padding: 10px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      align-items: center;
+      transition: background .12s ease, border-color .12s ease;
+    }
+    .record:hover { background: color-mix(in oklab, var(--paper-3) 60%, transparent); }
+    .record.active {
+      background: color-mix(in oklab, var(--paper-3) 70%, transparent);
+      border-color: var(--rule);
+    }
+    .record-icon {
+      width: 28px; height: 28px;
+      border-radius: 8px;
+      background: var(--paper-3);
+      border: 1px solid var(--rule);
+      display: grid; place-items: center;
+      color: var(--ink-soft);
+      flex-shrink: 0;
+    }
+    .record-icon.tag-moon { background: color-mix(in oklab, var(--moon) 18%, var(--paper-3)); color: var(--moon); }
+    .record-icon.tag-sakura { background: color-mix(in oklab, var(--sakura) 16%, var(--paper-3)); color: var(--sakura); }
+    .record-icon.tag-jade { background: color-mix(in oklab, var(--jade) 16%, var(--paper-3)); color: var(--jade); }
+    .record-icon.tag-seal { background: color-mix(in oklab, var(--seal) 14%, var(--paper-3)); color: var(--seal); }
+    .record-title {
+      font-size: 13.5px; font-weight: 500;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      line-height: 1.3;
+    }
+    .record-meta {
+      font-size: 11px;
+      color: var(--ink-soft);
+      font-variant-numeric: tabular-nums;
+      display: flex; gap: 6px; align-items: center;
+      margin-top: 3px;
+    }
+    .record-dur {
+      font-size: 10.5px;
+      color: var(--ink-mute);
+      font-variant-numeric: tabular-nums;
+    }
+    .record-empty {
+      font-size: 12px;
+      color: var(--ink-mute);
+      padding: 8px 4px;
+      font-style: italic;
+    }
+
+    /* Settings dropdown (top-right) — mascot pill */
+    .settings-wrap { position: relative; }
+    .mascot-pill {
+      appearance: none;
+      height: 34px;
+      padding: 0 12px 0 4px;
+      border-radius: 999px;
+      border: 1px solid color-mix(in oklab, var(--sakura) 30%, var(--rule));
+      background: color-mix(in oklab, var(--sakura) 10%, var(--paper-3));
+      color: var(--ink);
+      display: flex; align-items: center; gap: 8px;
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background .12s ease, border-color .12s ease, transform .12s ease;
+    }
+    .mascot-pill:hover {
+      background: color-mix(in oklab, var(--sakura) 16%, var(--paper-3));
+      border-color: color-mix(in oklab, var(--sakura) 50%, var(--rule));
+    }
+    .mascot-pill.open {
+      background: color-mix(in oklab, var(--sakura) 20%, var(--paper-3));
+      border-color: var(--sakura);
+      box-shadow: 0 0 0 1px color-mix(in oklab, var(--sakura) 35%, transparent);
+    }
+    .mascot-pill-avatar {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      background: var(--paper);
+      display: grid; place-items: center;
+      flex-shrink: 0;
+      overflow: hidden;
+      box-shadow: 0 0 0 1px color-mix(in oklab, var(--sakura) 25%, transparent);
+    }
+    .mascot-pill-avatar svg {
+      width: 30px; height: 30px;
+      display: block;
+      transform: translateY(2px);
+    }
+    .mascot-pill-name {
+      font-family: "Shippori Mincho", "Noto Serif TC", serif;
+      letter-spacing: 0.2em;
+      font-weight: 500;
+    }
+    .mascot-pill-chev {
+      color: var(--ink-soft);
+      transition: transform .2s ease;
+    }
+    .mascot-pill.open .mascot-pill-chev { transform: rotate(180deg); }
+
+    .settings-menu {
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
+      min-width: 240px;
+      background: var(--paper-3);
+      border: 1px solid var(--rule);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 16px;
+      z-index: 50;
+      opacity: 0;
+      transform: translateY(-6px) scale(0.98);
+      transform-origin: top right;
+      pointer-events: none;
+      transition: opacity .15s ease, transform .18s ease;
+    }
+    .settings-menu.open {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+    .settings-menu::before {
+      content: "";
+      position: absolute;
+      top: -5px; right: 14px;
+      width: 10px; height: 10px;
+      background: var(--paper-3);
+      border-left: 1px solid var(--rule);
+      border-top: 1px solid var(--rule);
+      transform: rotate(45deg);
+    }
+    .settings-section {
+      display: flex; flex-direction: column;
+      gap: 10px;
+    }
+    .settings-section + .settings-section {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--rule);
+    }
+    .settings-label {
+      display: flex; align-items: center; justify-content: space-between;
+      font-family: "Shippori Mincho", serif;
+      font-size: 11px;
+      letter-spacing: 0.28em;
+      color: var(--ink-soft);
+      text-transform: uppercase;
+      padding: 0 2px;
+    }
+    .settings-label .tag-cn {
+      font-family: "Shippori Mincho", serif;
+      letter-spacing: 0.5em;
+      text-transform: none;
+    }
+    .mascot-picker-options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .mascot-option {
+      appearance: none;
+      border: 1px solid var(--rule);
+      background: color-mix(in oklab, var(--paper-3) 70%, transparent);
+      border-radius: 12px;
+      padding: 8px 6px 6px;
+      cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      color: var(--ink-soft);
+      font-family: inherit;
+      transition: all .15s ease;
+      position: relative;
+    }
+    .mascot-option:hover {
+      background: var(--paper-3);
+      border-color: color-mix(in oklab, var(--moon) 30%, var(--rule));
+      transform: translateY(-1px);
+    }
+    .mascot-option.active {
+      background: color-mix(in oklab, var(--moon) 14%, var(--paper-3));
+      border-color: var(--moon);
+      color: var(--ink);
+      box-shadow: 0 0 0 1px color-mix(in oklab, var(--moon) 40%, transparent),
+                  0 8px 18px -10px color-mix(in oklab, var(--moon) 70%, transparent);
+    }
+    .mascot-option svg {
+      width: 44px; height: 44px;
+      display: block;
+    }
+    .mascot-option .name {
+      font-family: "Shippori Mincho", "Noto Serif TC", serif;
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      font-weight: 500;
+    }
+    .mascot-option.active::after {
+      content: "";
+      position: absolute;
+      top: 6px; right: 6px;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--moon);
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--moon) 25%, transparent);
+    }
+
+    /* ── Main stage ── */
+    .stage {
+      position: relative;
+      display: flex; flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 26px;
+      border-bottom: 1px solid var(--rule);
+      flex-shrink: 0;
+    }
+    .topbar-title {
+      display: flex; align-items: center; gap: 14px;
+      font-family: "Zen Maru Gothic", "Noto Sans TC", sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.42em;
+      color: var(--ink-mute);
+      text-transform: uppercase;
+    }
+    .topbar-title .kanji {
+      font-family: "Klee One", "Shippori Mincho", "Noto Serif TC", serif;
+      font-weight: 600;
+      font-size: 19px;
+      color: var(--ink);
+      letter-spacing: 0.16em;
+      display: inline-flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .topbar-title .kanji::before {
+      content: "";
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--moon);
+      transform: translateY(-2px);
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--moon) 18%, transparent);
+    }
+    .topbar-actions { display: flex; gap: 8px; align-items: center; }
+    .theme-pill {
+      height: 34px; padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid var(--rule);
+      background: var(--paper-3);
+      color: var(--ink-soft);
+      display: flex; align-items: center; gap: 8px;
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background .12s ease;
+    }
+    .theme-pill:hover { background: color-mix(in oklab, var(--paper-3) 80%, var(--paper-2)); }
+
+    /* ── Stage content ── */
+    .stage-body {
+      flex: 1;
+      display: flex; flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 28px 32px 60px;
+      gap: 20px;
+      overflow-y: auto;
+      min-height: 0;
+    }
+    .stage-body::-webkit-scrollbar { width: 6px; }
+    .stage-body::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
+
+    .eyebrow {
+      font-family: "Klee One", "Shippori Mincho", "Noto Serif TC", serif;
+      font-weight: 600;
+      font-size: 28px;
+      color: var(--ink);
+      letter-spacing: 0.4em;
+      padding-left: 0.4em;
+      margin-top: 14px;
+      line-height: 1.1;
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .eyebrow::before, .eyebrow::after {
+      content: "";
+      width: 24px; height: 1px;
+      background: var(--moon);
+      flex-shrink: 0;
+    }
+    .eyebrow-en {
+      font-family: "Zen Maru Gothic", "Noto Sans TC", sans-serif;
+      font-size: 10.5px;
+      letter-spacing: 0.42em;
+      color: var(--ink-mute);
+      text-transform: uppercase;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    /* mascot stage */
+    .mascot-wrap {
+      position: relative;
+      width: 280px; height: 280px;
+      display: grid; place-items: center;
+      margin-top: 10px;
+    }
+    .mascot-halo {
+      position: absolute; inset: 0;
+      border-radius: 50%;
+      background:
+        radial-gradient(closest-side, color-mix(in oklab, var(--moon) 22%, transparent), transparent 75%);
+      filter: blur(2px);
+    }
+    .mascot-halo.recording {
+      background:
+        radial-gradient(closest-side, color-mix(in oklab, var(--seal) 26%, transparent), transparent 70%);
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+    .mascot-halo.processing {
+      background:
+        radial-gradient(closest-side, color-mix(in oklab, var(--jade) 22%, transparent), transparent 75%);
+      animation: pulse 2.6s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: .8; }
+      50% { transform: scale(1.06); opacity: 1; }
+    }
+
+    .mascot-ring {
+      position: absolute; inset: 20px;
+      border-radius: 50%;
+      border: 1px dashed color-mix(in oklab, var(--ink) 18%, transparent);
+      animation: spin 60s linear infinite;
+    }
+    .mascot-ring.fast { animation-duration: 12s; }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .mascot {
+      position: relative;
+      width: 168px; height: 168px;
+      display: grid; place-items: center;
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.18s ease;
+    }
+    .mascot:hover { transform: translateY(-2px); }
+    .mascot:active { transform: scale(0.97); }
+
+    .timer {
+      font-family: "Shippori Mincho", serif;
+      font-variant-numeric: tabular-nums;
+      font-size: 56px;
+      letter-spacing: 0.18em;
+      color: var(--ink);
+      margin-top: 2px;
+      display: flex; align-items: center; gap: 14px;
+    }
+    .timer .tick {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--seal);
+      animation: blink 1.2s ease-in-out infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.25; }
+    }
+
+    .helper {
+      text-align: center;
+      color: var(--ink-soft);
+      font-size: 14px;
+      line-height: 1.9;
+      max-width: 480px;
+      margin-top: 4px;
+    }
+    .helper .strong { color: var(--ink); font-weight: 500; }
+    .helper a {
+      color: var(--moon);
+      text-decoration: none;
+      border-bottom: 1px dashed color-mix(in oklab, var(--moon) 60%, transparent);
+      padding-bottom: 1px;
+      cursor: pointer;
+    }
+    .helper a:hover { color: color-mix(in oklab, var(--moon) 70%, var(--ink)); }
+
+    .controls {
+      display: flex; align-items: center; gap: 14px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .control-btn {
+      appearance: none;
+      height: 44px;
+      padding: 0 22px;
+      border-radius: 22px;
+      border: 1px solid var(--rule);
+      background: var(--paper-3);
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
+      transition: background .12s ease, transform .12s ease;
+    }
+    .control-btn:hover:not(:disabled) { transform: translateY(-1px); background: var(--paper-2); }
+    .control-btn:disabled { opacity: 0.55; cursor: wait; }
+    .control-btn.primary {
+      background: var(--ink);
+      color: var(--paper);
+      border-color: transparent;
+    }
+    .control-btn.danger {
+      background: color-mix(in oklab, var(--seal) 92%, var(--ink));
+      color: var(--paper);
+      border-color: transparent;
+    }
+    .control-btn.ghost {
+      background: transparent;
+      color: var(--ink-soft);
+    }
+    .control-btn .dot {
+      width: 10px; height: 10px;
+      border-radius: 2px;
+      background: currentColor;
+    }
+
+    /* file drop hint */
+    .dropzone {
+      width: min(560px, 100%);
+      padding: 14px 18px;
+      border: 1px dashed var(--rule);
+      border-radius: 14px;
+      background: color-mix(in oklab, var(--paper-3) 50%, transparent);
+      text-align: center;
+      color: var(--ink-soft);
+      font-size: 13px;
+      margin-top: 6px;
+      transition: background .15s ease, border-color .15s ease;
+    }
+    .dropzone.dragover {
+      background: color-mix(in oklab, var(--moon) 12%, var(--paper-3));
+      border-color: var(--moon);
+      color: var(--ink);
+    }
+    .dropzone .formats {
+      display: inline-flex; gap: 6px; flex-wrap: wrap;
+      margin-left: 6px;
+    }
+    .dropzone .fmt {
+      font-family: ui-monospace, "JetBrains Mono", Menlo, monospace;
+      font-size: 10.5px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: color-mix(in oklab, var(--ink) 6%, transparent);
+      color: var(--ink-soft);
+    }
+
+    /* waveform */
+    .waveform {
+      display: flex; align-items: center; gap: 3px;
+      height: 64px;
+      margin-top: 4px;
+    }
+    .waveform .bar {
+      width: 4px;
+      background: var(--moon);
+      border-radius: 2px;
+      transform-origin: center;
+      transition: height .12s ease;
+      min-height: 6px;
+    }
+
+    /* ── Summary scroll card ── */
+    .scroll-card {
+      width: min(780px, 100%);
+      background: var(--paper-3);
+      border: 1px solid var(--rule);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 32px 36px 36px;
+      position: relative;
+      overflow: hidden;
+    }
+    .scroll-card::before, .scroll-card::after {
+      content: "";
+      position: absolute;
+      left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--ink) 14%, transparent), transparent);
+    }
+    .scroll-card::before { top: 0; }
+    .scroll-card::after { bottom: 0; }
+
+    .scroll-hd {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 20px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--rule);
+    }
+    .scroll-title {
+      font-family: "Shippori Mincho", serif;
+      font-size: 26px;
+      line-height: 1.3;
+      letter-spacing: 0.02em;
+      color: var(--ink);
+    }
+    .scroll-meta {
+      display: flex; gap: 14px; margin-top: 8px;
+      font-size: 12px; color: var(--ink-soft);
+      flex-wrap: wrap;
+    }
+    .scroll-meta .dot { color: var(--ink-mute); }
+
+    .seal {
+      flex-shrink: 0;
+      width: 64px; height: 64px;
+      border: 2px solid var(--seal);
+      border-radius: 8px;
+      display: grid; place-items: center;
+      font-family: "Shippori Mincho", serif;
+      color: var(--seal);
+      font-size: 14px;
+      line-height: 1;
+      letter-spacing: 0;
+      transform: rotate(-6deg);
+      position: relative;
+      background: color-mix(in oklab, var(--paper-3) 85%, var(--seal) 4%);
+    }
+    .seal .stack { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+
+    .scroll-section { padding-top: 18px; }
+    .scroll-section + .scroll-section { margin-top: 6px; }
+    .scroll-section h4 {
+      margin: 0 0 10px;
+      font-family: "Shippori Mincho", serif;
+      font-size: 13px;
+      letter-spacing: 0.3em;
+      color: var(--ink-soft);
+      font-weight: 500;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .scroll-section h4::before {
+      content: ""; width: 14px; height: 1px; background: var(--ink-soft);
+    }
+    .scroll-section p, .scroll-section .body-text {
+      margin: 0;
+      line-height: 1.85;
+      font-size: 14.5px;
+      color: var(--ink);
+      text-wrap: pretty;
+      white-space: pre-wrap;
+    }
+    .scroll-section .body-text {
+      font-family: "Shippori Mincho", "Noto Serif TC", serif;
+    }
+
+    /* delete subtle button */
+    .scroll-card .scroll-actions {
+      position: absolute;
+      top: 18px; right: 22px;
+      display: flex; gap: 6px;
+    }
+    .scroll-card .icon-ghost {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      border: 1px solid var(--rule);
+      background: transparent;
+      color: var(--ink-mute);
+      display: grid; place-items: center;
+      cursor: pointer;
+      transition: color .12s ease, background .12s ease, border-color .12s ease;
+    }
+    .scroll-card .icon-ghost:hover { color: var(--seal); border-color: var(--seal); background: color-mix(in oklab, var(--seal) 6%, transparent); }
+
+    .transcript-link {
+      display: inline-flex; align-items: center; gap: 8px;
+      margin-top: 14px;
+      font-size: 13px;
+      color: var(--moon);
+      cursor: pointer;
+      text-decoration: none;
+      border-bottom: 1px dashed color-mix(in oklab, var(--moon) 50%, transparent);
+      padding-bottom: 1px;
+      width: max-content;
+    }
+    .transcript-link .chev { transition: transform .2s ease; }
+    .transcript-link.open .chev { transform: rotate(180deg); }
+    .transcript-body {
+      margin-top: 14px;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s ease;
+    }
+    .transcript-body.open { max-height: 600px; overflow-y: auto; }
+    .transcript-body .body-text {
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: color-mix(in oklab, var(--ink) 4%, transparent);
+      font-size: 13.5px;
+      line-height: 1.85;
+      color: var(--ink);
+    }
+
+    /* processing scroll */
+    .processing-card {
+      width: min(560px, 100%);
+      padding: 22px 26px;
+      border-radius: 16px;
+      background: var(--paper-3);
+      border: 1px solid var(--rule);
+      box-shadow: var(--shadow);
+      margin-top: 8px;
+    }
+    .steps { display: flex; flex-direction: column; gap: 10px; }
+    .step {
+      display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 12px;
+      font-size: 13.5px;
+    }
+    .step .num {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 1px solid var(--rule);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      display: grid; place-items: center;
+      color: var(--ink-soft);
+      background: var(--paper-3);
+    }
+    .step.done .num { background: var(--jade); border-color: var(--jade); color: var(--paper); }
+    .step.active .num { background: var(--moon); border-color: var(--moon); color: var(--ink); }
+    .step.todo { color: var(--ink-mute); }
+    .step .spinner {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      border: 2px solid color-mix(in oklab, var(--moon) 25%, transparent);
+      border-top-color: var(--moon);
+      animation: spin 0.9s linear infinite;
+    }
+    .step .check {
+      font-size: 11px; color: var(--ink-mute);
+    }
+    .step.error .num { background: var(--seal); border-color: var(--seal); color: var(--paper); }
+
+    /* Tags chips */
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .chip {
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--rule);
+      background: color-mix(in oklab, var(--paper-3) 70%, transparent);
+      font-size: 11.5px;
+      color: var(--ink-soft);
+    }
+    .chip.tag-moon { color: color-mix(in oklab, var(--moon) 80%, var(--ink)); background: color-mix(in oklab, var(--moon) 12%, var(--paper-3)); border-color: color-mix(in oklab, var(--moon) 30%, var(--rule)); }
+    .chip.tag-jade { color: color-mix(in oklab, var(--jade) 80%, var(--ink)); background: color-mix(in oklab, var(--jade) 12%, var(--paper-3)); border-color: color-mix(in oklab, var(--jade) 30%, var(--rule)); }
+    .chip.tag-seal { color: color-mix(in oklab, var(--seal) 90%, var(--ink)); background: color-mix(in oklab, var(--seal) 10%, var(--paper-3)); border-color: color-mix(in oklab, var(--seal) 30%, var(--rule)); }
+
+    /* footer ornament */
+    .ornament {
+      display: flex; align-items: center; gap: 12px;
+      color: var(--ink-mute);
+      font-family: "Shippori Mincho", serif;
+      font-size: 11px;
+      letter-spacing: 0.4em;
+      margin-top: 18px;
+    }
+    .ornament .line { width: 30px; height: 1px; background: var(--ink-mute); }
+
+    /* loading transcript snippet */
+    .snippet {
+      font-family: "Shippori Mincho", serif;
+      font-size: 13px;
+      color: var(--ink-mute);
+      font-style: italic;
+      line-height: 1.7;
+      text-align: center;
+      max-width: 460px;
+      margin-top: 10px;
+      min-height: 1.7em;
+      transition: opacity .25s ease;
+    }
+
+    /* responsive */
+    @media (max-width: 820px) {
+      .app { grid-template-columns: 220px 1fr; }
+      .sidebar { padding: 16px 12px; }
+      .stage-body { padding: 20px 16px 40px; }
+      .mascot-wrap { width: 220px; height: 220px; }
+      .mascot { width: 130px; height: 130px; }
+      .timer { font-size: 42px; }
+      .scroll-card { padding: 22px 20px; }
+    }
+    @media (max-width: 560px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <div class="brand-name">Yomi <span class="kanji-mark">讀</span></div>
+          <div class="brand-sub">よみ · READ THE MOON</div>
+        </div>
+      </div>
+
+      <button class="new-btn" id="new-btn">
+        <span class="plus">+</span>
+        <span>結新的卷軸</span>
+        <span class="kbd">⌘ N</span>
+      </button>
+
+      <div class="search">
+        <span class="search-icon">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M11 11 L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <input id="search-input" placeholder="搜尋封存的卷軸…" />
+      </div>
+
+      <div class="section-h">
+        <span>Records</span>
+        <span class="tag-cn">記 錄</span>
+      </div>
+
+      <div class="records" id="records-list"></div>
+    </aside>
+
+    <!-- ── Main stage ── -->
+    <main class="stage">
+      <div class="topbar">
+        <div class="topbar-title">
+          <span class="kanji">無限 · 月讀</span>
+          <span style="color: var(--ink-mute)">·</span>
+          <span>CAST · LISTEN · REMEMBER</span>
+        </div>
+        <div class="topbar-actions">
+          <button class="theme-pill" id="theme-toggle" title="切換日/夜主題">
+            <span id="theme-icon-slot"></span>
+            <span id="theme-label-slot">夜 · Night</span>
+          </button>
+          <div class="settings-wrap">
+            <button class="mascot-pill" id="settings-btn" aria-label="切換吉祥物" title="切換吉祥物">
+              <span class="mascot-pill-avatar" id="mascot-pill-avatar"></span>
+              <span class="mascot-pill-name" id="mascot-pill-name">忍 貓</span>
+              <svg class="mascot-pill-chev" width="10" height="10" viewBox="0 0 12 12" fill="none">
+                <path d="M3 5 L6 8 L9 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <div class="settings-menu" id="settings-menu">
+              <div class="settings-section">
+                <div class="settings-label">
+                  <span>吉祥物</span>
+                  <span class="tag-cn">夥 伴</span>
+                </div>
+                <div class="mascot-picker-options" id="mascot-picker"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage-body" id="stage-body"></div>
+    </main>
+  </div>
+
+  <input type="file" id="file-input" accept="audio/*,video/quicktime" hidden />
+
+<script>
+/* ──────────────────────────────────────────────────────────
+   Yomi · vanilla JS implementation wired to existing API
+   ────────────────────────────────────────────────────────── */
+
+const $ = (s, root) => (root || document).querySelector(s);
+const $$ = (s, root) => Array.from((root || document).querySelectorAll(s));
+
+// ── State ──────────────────────────────────────────────────
+let state = {
+  view: 'idle',                // idle | recording | processing | summary | error
+  recording: false,
+  seconds: 0,
+  recordingStartedAt: null,
+  records: [],                 // list summaries from /api/meetings
+  currentMeetingId: null,
+  currentMeeting: null,        // full meeting object
+  searchQuery: '',
+  transcriptOpen: false,
+  theme: localStorage.getItem('yomi-theme') || 'day',
+  mascot: localStorage.getItem('yomi-mascot') || 'neko',  // 'neko' | 'tsuki'
+};
+
+let timerInterval = null;
+let waveformInterval = null;
+let snippetInterval = null;
+let snippetIndex = 0;
+let currentEventSource = null;
+
+const SNIPPETS = [
+  '正在聆聽錄音的呼吸…',
+  '辨識說話人的聲線…',
+  '抓取對話中的關鍵承諾…',
+  '梳理重點與下一步行動…',
+  '蓋上月影之印…',
+];
+
+// ── Helpers ────────────────────────────────────────────────
+function fmtTime(s) {
+  const m = Math.floor(s / 60).toString().padStart(2, '0');
+  const sec = Math.floor(s % 60).toString().padStart(2, '0');
+  return `${m}:${sec}`;
+}
+function fmtDate(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' });
+  } catch { return ''; }
+}
+function fmtDateTime(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString('zh-TW', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  } catch { return ''; }
+}
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function recordTagFor(stage) {
+  if (stage === 'done') return 'jade';
+  if (stage === 'error') return 'seal';
+  if (stage === 'queued') return 'moon';
+  return 'sakura';
+}
+function stageLabel(stage) {
+  return ({
+    queued: '待入夢',
+    creating: '結印',
+    uploading: '上傳',
+    transcribing: '解讀',
+    summarizing: '凝練',
+    done: '已封印',
+    error: '崩印',
+  })[stage] || stage || '';
+}
+
+// ── Mascot SVG ─────────────────────────────────────────────
+// kind: 'neko' (ninja kitten) | 'tsuki' (moon rabbit)
+// mode: 'idle' | 'recording' | 'processing'
+function mascotSvg(mode = 'idle', blinking = false, kind = 'neko', size = 168) {
+  const isClosed = mode === 'processing' || blinking;
+  const isFocused = mode === 'recording';
+  const fur = 'var(--ink)';
+  const inner = 'var(--paper)';
+  const headband = 'var(--seal)';
+  const moon = 'var(--moon)';
+
+  if (kind === 'tsuki') {
+    // Moon rabbit — tall pink-lined ears, mask band across eyes
+    const mask = 'var(--paper-3)';
+    let eyes = '';
+    if (isClosed) {
+      eyes = `
+        <path d="M 76 95 Q 84 100 92 95" stroke="${fur}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+        <path d="M 108 95 Q 116 100 124 95" stroke="${fur}" stroke-width="3.5" fill="none" stroke-linecap="round"/>`;
+    } else if (isFocused) {
+      eyes = `
+        <ellipse cx="84" cy="95" rx="5" ry="6" fill="${fur}"/>
+        <ellipse cx="116" cy="95" rx="5" ry="6" fill="${fur}"/>
+        <circle cx="86" cy="93" r="1.6" fill="${inner}"/>
+        <circle cx="118" cy="93" r="1.6" fill="${inner}"/>`;
+    } else {
+      eyes = `
+        <ellipse cx="84" cy="95" rx="4.5" ry="6.5" fill="${fur}"/>
+        <ellipse cx="116" cy="95" rx="4.5" ry="6.5" fill="${fur}"/>
+        <circle cx="85" cy="93" r="1.8" fill="${inner}"/>
+        <circle cx="117" cy="93" r="1.8" fill="${inner}"/>`;
+    }
+    return `
+      <svg viewBox="0 0 200 200" width="${size}" height="${size}" style="overflow:visible">
+        <ellipse cx="100" cy="172" rx="50" ry="6" fill="${fur}" opacity="0.12"/>
+        <ellipse cx="78" cy="38" rx="11" ry="28" fill="${fur}"/>
+        <ellipse cx="122" cy="38" rx="11" ry="28" fill="${fur}"/>
+        <ellipse cx="78" cy="40" rx="5" ry="20" fill="var(--sakura)"/>
+        <ellipse cx="122" cy="40" rx="5" ry="20" fill="var(--sakura)"/>
+        <circle cx="100" cy="100" r="58" fill="${fur}"/>
+        <circle cx="74" cy="118" r="8" fill="var(--sakura)" opacity="0.7"/>
+        <circle cx="126" cy="118" r="8" fill="var(--sakura)" opacity="0.7"/>
+        <rect x="50" y="84" width="100" height="22" rx="11" fill="${mask}" opacity="0.95"/>
+        <circle cx="100" cy="78" r="5" fill="${moon}"/>
+        ${eyes}
+        <ellipse cx="100" cy="120" rx="3" ry="2" fill="var(--sakura)"/>
+        <path d="M 100 122 Q 95 128 91 126" stroke="${fur}" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M 100 122 Q 105 128 109 126" stroke="${fur}" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>`;
+  }
+
+  // Default: ninja kitten
+  let eyes = '';
+  if (isClosed) {
+    eyes = `
+      <path d="M 72 102 Q 82 110 92 102" stroke="${inner}" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <path d="M 108 102 Q 118 110 128 102" stroke="${inner}" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+  } else if (isFocused) {
+    eyes = `
+      <ellipse cx="82" cy="104" rx="6" ry="4" fill="${inner}"/>
+      <ellipse cx="118" cy="104" rx="6" ry="4" fill="${inner}"/>
+      <circle cx="83" cy="104" r="2.4" fill="${fur}"/>
+      <circle cx="119" cy="104" r="2.4" fill="${fur}"/>`;
+  } else {
+    eyes = `
+      <ellipse cx="82" cy="104" rx="7" ry="9" fill="${inner}"/>
+      <ellipse cx="118" cy="104" rx="7" ry="9" fill="${inner}"/>
+      <ellipse cx="83" cy="106" rx="3.5" ry="4.5" fill="${fur}"/>
+      <ellipse cx="119" cy="106" rx="3.5" ry="4.5" fill="${fur}"/>
+      <circle cx="84" cy="103" r="1.4" fill="${inner}"/>
+      <circle cx="120" cy="103" r="1.4" fill="${inner}"/>`;
+  }
+
+  return `
+    <svg viewBox="0 0 200 200" width="${size}" height="${size}" style="overflow:visible">
+      <ellipse cx="100" cy="172" rx="50" ry="6" fill="${fur}" opacity="0.12"/>
+      <path d="M 50 70 L 60 28 L 86 56 Z" fill="${fur}"/>
+      <path d="M 150 70 L 140 28 L 114 56 Z" fill="${fur}"/>
+      <path d="M 60 56 L 64 38 L 78 52 Z" fill="var(--sakura)"/>
+      <path d="M 140 56 L 136 38 L 122 52 Z" fill="var(--sakura)"/>
+      <circle cx="100" cy="100" r="58" fill="${fur}"/>
+      <rect x="40" y="62" width="120" height="14" fill="${headband}"/>
+      <rect x="40" y="62" width="120" height="2" fill="rgba(0,0,0,0.18)"/>
+      <g transform="translate(155 64) rotate(28)">
+        <rect x="0" y="0" width="6" height="34" fill="${headband}"/>
+        <rect x="0" y="0" width="6" height="3" fill="rgba(0,0,0,0.18)"/>
+      </g>
+      <g transform="translate(160 70) rotate(40)">
+        <rect x="0" y="0" width="5" height="26" fill="${headband}" opacity="0.85"/>
+      </g>
+      <circle cx="100" cy="69" r="6.5" fill="${moon}"/>
+      <circle cx="70" cy="120" r="9" fill="var(--sakura)" opacity="0.55"/>
+      <circle cx="130" cy="120" r="9" fill="var(--sakura)" opacity="0.55"/>
+      ${eyes}
+      <path d="M 96 126 L 104 126 L 100 131 Z" fill="var(--sakura)"/>
+      <path d="M 100 131 Q 94 138 89 134" stroke="${inner}" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <path d="M 100 131 Q 106 138 111 134" stroke="${inner}" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <line x1="40" y1="120" x2="58" y2="122" stroke="${inner}" stroke-width="1.2" opacity="0.6"/>
+      <line x1="40" y1="128" x2="58" y2="128" stroke="${inner}" stroke-width="1.2" opacity="0.6"/>
+      <line x1="160" y1="120" x2="142" y2="122" stroke="${inner}" stroke-width="1.2" opacity="0.6"/>
+      <line x1="160" y1="128" x2="142" y2="128" stroke="${inner}" stroke-width="1.2" opacity="0.6"/>
+    </svg>`;
+}
+
+function recIconSvg(tag) {
+  if (tag === 'moon')
+    return `<svg width="14" height="14" viewBox="0 0 16 16"><circle cx="9" cy="8" r="5.5" fill="currentColor"/><circle cx="11" cy="7" r="4.4" fill="var(--paper-3)"/></svg>`;
+  if (tag === 'sakura')
+    return `<svg width="14" height="14" viewBox="0 0 16 16">${
+      [0,72,144,216,288].map(r => `<ellipse cx="8" cy="4" rx="1.8" ry="3" fill="currentColor" transform="rotate(${r} 8 8)"/>`).join('')
+    }<circle cx="8" cy="8" r="1.4" fill="var(--moon)"/></svg>`;
+  if (tag === 'jade')
+    return `<svg width="14" height="14" viewBox="0 0 16 16"><path d="M3 13 L13 13 L11 6 L8 3 L5 6 Z" fill="currentColor"/></svg>`;
+  if (tag === 'seal')
+    return `<svg width="14" height="14" viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10" rx="2" fill="currentColor"/></svg>`;
+  return `<svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3" fill="currentColor"/></svg>`;
+}
+
+// ── Mascot picker ──────────────────────────────────────────
+const MASCOT_OPTS = [
+  { kind: 'neko', name: '忍 貓' },
+  { kind: 'tsuki', name: '月 兔' },
+];
+
+function renderMascotPill() {
+  const av = $('#mascot-pill-avatar');
+  const nm = $('#mascot-pill-name');
+  if (!av || !nm) return;
+  av.innerHTML = mascotSvg('idle', false, state.mascot, 30);
+  const opt = MASCOT_OPTS.find(o => o.kind === state.mascot);
+  nm.textContent = opt ? opt.name : '';
+}
+
+function renderMascotPicker() {
+  const el = $('#mascot-picker');
+  if (!el) return;
+  el.innerHTML = MASCOT_OPTS.map(o => `
+    <button class="mascot-option${state.mascot === o.kind ? ' active' : ''}" data-kind="${o.kind}" title="${o.name}">
+      ${mascotSvg('idle', false, o.kind, 44)}
+      <span class="name">${o.name}</span>
+    </button>
+  `).join('');
+  $$('#mascot-picker .mascot-option').forEach(b => {
+    b.addEventListener('click', () => {
+      const k = b.dataset.kind;
+      if (k === state.mascot) return;
+      state.mascot = k;
+      localStorage.setItem('yomi-mascot', k);
+      renderMascotPicker();
+      renderMascotPill();
+      renderStage();
+    });
+  });
+}
+
+// ── Theme toggle ───────────────────────────────────────────
+function applyTheme(theme) {
+  state.theme = theme;
+  document.documentElement.setAttribute('data-theme', theme === 'night' ? 'night' : 'day');
+  localStorage.setItem('yomi-theme', theme);
+  const next = theme === 'night' ? 'day' : 'night';
+  const iconSlot = $('#theme-icon-slot');
+  const labelSlot = $('#theme-label-slot');
+  if (iconSlot) {
+    iconSlot.innerHTML = theme === 'night'
+      ? `<svg width="14" height="14" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.5" fill="currentColor"/><g stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><line x1="8" y1="1.5" x2="8" y2="3"/><line x1="8" y1="13" x2="8" y2="14.5"/><line x1="1.5" y1="8" x2="3" y2="8"/><line x1="13" y1="8" x2="14.5" y2="8"/></g></svg>`
+      : `<svg width="14" height="14" viewBox="0 0 16 16"><path d="M11 2 a6 6 0 1 0 3 11 a5 5 0 0 1 -3 -11 Z" fill="currentColor"/></svg>`;
+  }
+  if (labelSlot) labelSlot.textContent = theme === 'night' ? '日 · Day' : '夜 · Night';
+}
+
+// ── API ────────────────────────────────────────────────────
+async function api(path, opts = {}) {
+  const r = await fetch(path, opts);
+  const ct = r.headers.get('content-type') || '';
+  const data = ct.includes('json') ? await r.json() : await r.text();
+  if (!r.ok) throw new Error((data && data.error) || 'unknown error');
+  return data;
+}
+
+// ── Render ─────────────────────────────────────────────────
+function deriveView() {
+  if (state.recording) return 'recording';
+  if (!state.currentMeeting) return 'idle';
+  const s = state.currentMeeting.stage;
+  if (s === 'done') return 'summary';
+  if (s === 'error') return 'error';
+  return 'processing';
+}
+
+function render() {
+  state.view = deriveView();
+  renderSidebar();
+  renderStage();
+}
+
+function renderSidebar() {
+  const list = $('#records-list');
+  const q = state.searchQuery.trim().toLowerCase();
+  const filtered = q
+    ? state.records.filter(r => (r.title || '').toLowerCase().includes(q))
+    : state.records;
+
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="record-empty">${q ? '查無符合的卷軸' : '尚無封存的卷軸'}</div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(r => {
+    const tag = recordTagFor(r.stage);
+    const active = r.id === state.currentMeetingId ? ' active' : '';
+    const date = fmtDate(r.createdAt);
+    const stageTxt = stageLabel(r.stage);
+    return `
+      <div class="record${active}" data-id="${r.id}">
+        <div class="record-icon tag-${tag}">${recIconSvg(tag)}</div>
+        <div style="min-width:0">
+          <div class="record-title">${escapeHtml(r.title)}</div>
+          <div class="record-meta">
+            ${date ? `<span>${escapeHtml(date)}</span>` : ''}
+            ${date && stageTxt ? `<span style="opacity:0.4">·</span>` : ''}
+            <span class="record-dur">${escapeHtml(stageTxt)}</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  $$('#records-list .record').forEach(el => {
+    el.addEventListener('click', () => handleSelect(Number(el.dataset.id)));
+  });
+}
+
+function renderStage() {
+  const body = $('#stage-body');
+  if (state.view === 'idle') body.innerHTML = tplIdle();
+  else if (state.view === 'recording') body.innerHTML = tplRecording();
+  else if (state.view === 'processing') body.innerHTML = tplProcessing();
+  else if (state.view === 'summary') body.innerHTML = tplSummary();
+  else if (state.view === 'error') body.innerHTML = tplError();
+
+  wireStage();
+  startSubsystemsForView();
+}
+
+// ── Templates ──────────────────────────────────────────────
+function tplIdle() {
+  return `
+    <div class="eyebrow">月 讀</div>
+    <div class="eyebrow-en">Cast the recording</div>
+
+    <div class="mascot-wrap">
+      <div class="mascot-halo"></div>
+      <div class="mascot-ring"></div>
+      <div class="mascot" id="mascot-btn" role="button" aria-label="開始錄音">
+        ${mascotSvg('idle', false, state.mascot)}
+      </div>
+    </div>
+
+    <div class="timer" aria-hidden="true">00:00</div>
+
+    <div class="helper">
+      輕觸忍貓開始<span class="strong">錄音</span>，一切聲響將被封入卷軸。<br/>
+      或 <a id="helper-upload">上傳既有音檔</a>，交予月讀閱讀。
+    </div>
+
+    <div class="dropzone" id="dropzone">
+      將音檔拖入此處
+      <span class="formats">
+        <span class="fmt">.m4a</span>
+        <span class="fmt">.mp3</span>
+        <span class="fmt">.wav</span>
+        <span class="fmt">.mov</span>
+      </span>
+    </div>
+
+    <div class="controls">
+      <button class="control-btn primary" id="btn-start">
+        <span class="dot"></span> 開始錄音
+      </button>
+      <button class="control-btn" id="btn-upload">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <path d="M8 11 V3 M5 6 L8 3 L11 6 M3 12 V13 H13 V12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        上傳音檔
+      </button>
+    </div>
+
+    <div class="ornament">
+      <span class="line"></span>
+      <span>月 影 之 印</span>
+      <span class="line"></span>
+    </div>`;
+}
+
+function tplRecording() {
+  return `
+    <div class="eyebrow" style="color: var(--seal)">錄 · 音 · 中</div>
+    <div class="eyebrow-en">Listening · 結印中</div>
+
+    <div class="mascot-wrap">
+      <div class="mascot-halo recording"></div>
+      <div class="mascot-ring fast"></div>
+      <div class="mascot">
+        ${mascotSvg('recording', false, state.mascot)}
+      </div>
+    </div>
+
+    <div class="timer">
+      <span class="tick"></span>
+      <span id="timer-text">${fmtTime(state.seconds)}</span>
+    </div>
+
+    <div class="waveform" id="waveform">
+      ${Array.from({ length: 40 }).map(() => `<div class="bar" style="height:10px"></div>`).join('')}
+    </div>
+
+    <div class="controls">
+      <button class="control-btn danger" id="btn-stop">
+        <span class="dot"></span> 結束並封存
+      </button>
+    </div>
+
+    <div class="helper" style="margin-top: 4px">
+      錄音將於本機加密保存，僅交予月讀進行閱讀整理。<br/>
+      請保持環境安靜，月讀正在聆聽每一句話。
+    </div>`;
+}
+
+function tplProcessing() {
+  const m = state.currentMeeting || {};
+  const steps = buildSteps(m.stage);
+  const errored = m.stage === 'error';
+
+  return `
+    <div class="eyebrow" style="color: ${errored ? 'var(--seal)' : 'var(--jade)'}">月 讀 · 閱 讀 中</div>
+    <div class="eyebrow-en">Reading the scroll…</div>
+
+    <div class="mascot-wrap">
+      <div class="mascot-halo processing"></div>
+      <div class="mascot-ring"></div>
+      <div class="mascot">
+        ${mascotSvg('processing', false, state.mascot)}
+      </div>
+    </div>
+
+    <div class="snippet" id="snippet">「${escapeHtml(m.stageMsg || SNIPPETS[0])}」</div>
+
+    <div class="processing-card">
+      <div style="font-family: 'Shippori Mincho', serif; font-size: 13px; letter-spacing: 0.3em; color: var(--ink-soft); margin-bottom: 14px;">
+        ${escapeHtml(m.title || '處理中')}
+      </div>
+      <div class="steps">
+        ${steps.map((s, i) => `
+          <div class="step ${s.state}">
+            <div class="num">${s.state === 'done' ? '✓' : (i + 1)}</div>
+            <div>${s.label}</div>
+            ${s.state === 'active' ? '<div class="spinner"></div>' : ''}
+            ${s.state === 'done' ? '<div class="check">已完成</div>' : ''}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="control-btn ghost" id="btn-back">回到首頁</button>
+    </div>`;
+}
+
+function tplSummary() {
+  const m = state.currentMeeting || {};
+  const meta = [];
+  if (m.createdAt) meta.push(fmtDateTime(m.createdAt));
+  if (m.completedAt) meta.push('已封印於 ' + fmtDateTime(m.completedAt));
+
+  const tOpen = state.transcriptOpen;
+
+  return `
+    <div class="eyebrow">卷 · 軸 · 完 · 成</div>
+    <div class="eyebrow-en">The scroll is sealed</div>
+
+    <div class="scroll-card">
+      <div class="scroll-actions">
+        <button class="icon-ghost" id="btn-delete" title="解除此卷">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M3 5 H13 M6 5 V3 H10 V5 M5 5 L6 13 H10 L11 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="scroll-hd">
+        <div style="min-width:0;flex:1">
+          <div class="scroll-title">${escapeHtml(m.title || '會議卷軸')}</div>
+          <div class="scroll-meta">
+            ${meta.map((x, i) => `${i > 0 ? '<span class="dot">·</span>' : ''}<span>${escapeHtml(x)}</span>`).join('')}
+          </div>
+          <div class="chips">
+            <span class="chip tag-jade">已整理</span>
+            <span class="chip">月讀閱讀</span>
+          </div>
+        </div>
+        <div class="seal" aria-label="月讀之印">
+          <div class="stack">
+            <span>月</span>
+            <span>讀</span>
+            <span>印</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="scroll-section">
+        <h4>月 讀 之 言</h4>
+        <div class="body-text">${escapeHtml(m.summary || '（尚未產生摘要）')}</div>
+      </div>
+
+      <a class="transcript-link ${tOpen ? 'open' : ''}" id="transcript-toggle">
+        ${tOpen ? '收起逐字稿' : '展開完整逐字稿'}
+        <svg class="chev" width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M3 5 L6 8 L9 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </a>
+
+      <div class="transcript-body ${tOpen ? 'open' : ''}">
+        <div class="body-text">${escapeHtml(m.transcript || '（無逐字稿）')}</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="control-btn primary" id="btn-new">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <path d="M8 3 v10 M3 8 h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+        結新卷軸
+      </button>
+    </div>`;
+}
+
+function tplError() {
+  const m = state.currentMeeting || {};
+  return `
+    <div class="eyebrow" style="color: var(--seal)">崩 · 印</div>
+    <div class="eyebrow-en">The scroll was torn</div>
+
+    <div class="mascot-wrap">
+      <div class="mascot-halo recording"></div>
+      <div class="mascot-ring"></div>
+      <div class="mascot">
+        ${mascotSvg('processing', false, state.mascot)}
+      </div>
+    </div>
+
+    <div class="scroll-card">
+      <div class="scroll-actions">
+        <button class="icon-ghost" id="btn-delete" title="解除此卷">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M3 5 H13 M6 5 V3 H10 V5 M5 5 L6 13 H10 L11 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="scroll-hd">
+        <div style="min-width:0;flex:1">
+          <div class="scroll-title">${escapeHtml(m.title || '會議卷軸')}</div>
+          <div class="scroll-meta">
+            <span style="color: var(--seal)">處理時發生錯誤</span>
+          </div>
+          <div class="chips">
+            <span class="chip tag-seal">崩印</span>
+          </div>
+        </div>
+        <div class="seal" style="border-color: var(--seal); color: var(--seal); transform: rotate(-12deg)">
+          <div class="stack"><span>崩</span><span>印</span></div>
+        </div>
+      </div>
+      <div class="scroll-section">
+        <h4>錯 誤 訊 息</h4>
+        <div class="body-text">${escapeHtml(m.stageMsg || m.error || '未知錯誤')}</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="control-btn" id="btn-new">回到首頁</button>
+    </div>`;
+}
+
+// ── Build processing steps from stage ──────────────────────
+function buildSteps(stage) {
+  const order = ['封存音檔 · 加密保存', '聆聽轉錄 · 含說話人辨識', '月讀閱讀 · 抓取重點與行動項', '蓋上月影之印 · 完成卷軸'];
+  const map = {
+    queued:       0,
+    creating:     0,
+    uploading:    0,
+    transcribing: 1,
+    summarizing:  2,
+    done:         4,
+    error:        -1,
+  };
+  const idx = map[stage] ?? 0;
+  return order.map((label, i) => {
+    let st = 'todo';
+    if (stage === 'error') st = i === Math.max(0, idx) ? 'error' : 'todo';
+    else if (i < idx) st = 'done';
+    else if (i === idx) st = 'active';
+    return { label, state: st };
+  });
+}
+
+// ── Wire interactions per view ─────────────────────────────
+function wireStage() {
+  // Idle
+  const mascotBtn = $('#mascot-btn');
+  if (mascotBtn) mascotBtn.addEventListener('click', handleStart);
+  const btnStart = $('#btn-start');
+  if (btnStart) btnStart.addEventListener('click', handleStart);
+  const btnUpload = $('#btn-upload');
+  if (btnUpload) btnUpload.addEventListener('click', () => $('#file-input').click());
+  const helperUpload = $('#helper-upload');
+  if (helperUpload) helperUpload.addEventListener('click', () => $('#file-input').click());
+  const dz = $('#dropzone');
+  if (dz) {
+    ['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('dragover'); }));
+    ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('dragover'); }));
+    dz.addEventListener('drop', e => {
+      const f = e.dataTransfer?.files?.[0];
+      if (f) handleUpload(f);
+    });
+  }
+
+  // Recording
+  const btnStop = $('#btn-stop');
+  if (btnStop) btnStop.addEventListener('click', handleStop);
+
+  // Processing / Error
+  const btnBack = $('#btn-back');
+  if (btnBack) btnBack.addEventListener('click', handleBackToIdle);
+
+  // Summary
+  const tToggle = $('#transcript-toggle');
+  if (tToggle) tToggle.addEventListener('click', () => {
+    state.transcriptOpen = !state.transcriptOpen;
+    renderStage();
+  });
+  const btnDelete = $('#btn-delete');
+  if (btnDelete) btnDelete.addEventListener('click', handleDelete);
+  const btnNew = $('#btn-new');
+  if (btnNew) btnNew.addEventListener('click', handleBackToIdle);
+}
+
+// ── Subsystems (timer, waveform, snippet) ──────────────────
+function startSubsystemsForView() {
+  stopAllSubsystems();
+
+  if (state.view === 'recording') {
+    startTimer();
+    startWaveform();
+  } else if (state.view === 'processing') {
+    startSnippetCycle();
+  }
+}
+function stopAllSubsystems() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  if (waveformInterval) { clearInterval(waveformInterval); waveformInterval = null; }
+  if (snippetInterval) { clearInterval(snippetInterval); snippetInterval = null; }
+}
+
+function startTimer() {
+  const tick = () => {
+    state.seconds = Math.floor((Date.now() - state.recordingStartedAt) / 1000);
+    const txt = $('#timer-text');
+    if (txt) txt.textContent = fmtTime(state.seconds);
+  };
+  tick();
+  timerInterval = setInterval(tick, 1000);
+}
+
+function startWaveform() {
+  const wf = $('#waveform');
+  if (!wf) return;
+  const bars = $$('.bar', wf);
+  const n = bars.length;
+  waveformInterval = setInterval(() => {
+    const now = Date.now();
+    bars.forEach((b, i) => {
+      const base = 0.3 + 0.3 * Math.sin(now / 320 + i * 0.45);
+      const noise = Math.random() * 0.6;
+      const v = Math.min(1, Math.max(0.12, base * 0.5 + noise * 0.6));
+      b.style.height = `${Math.round(v * 60)}px`;
+    });
+  }, 90);
+}
+
+function startSnippetCycle() {
+  const el = $('#snippet');
+  if (!el) return;
+  snippetIndex = 0;
+  snippetInterval = setInterval(() => {
+    // Prefer server stageMsg if changing; else cycle snippets
+    const m = state.currentMeeting;
+    let text = SNIPPETS[snippetIndex % SNIPPETS.length];
+    if (m && m.stageMsg) text = m.stageMsg;
+    snippetIndex++;
+    el.style.opacity = '0';
+    setTimeout(() => {
+      el.textContent = `「${text}」`;
+      el.style.opacity = '';
+    }, 200);
+  }, 2200);
+}
+
+// ── Handlers ───────────────────────────────────────────────
+async function handleStart() {
+  if (state.recording) return;
+  try {
+    const data = await api('/api/recording/start', { method: 'POST' });
+    state.recording = true;
+    state.recordingStartedAt = data.startedAt || Date.now();
+    state.currentMeetingId = null;
+    state.currentMeeting = null;
+    render();
+  } catch (e) {
+    alert('開始錄音失敗：' + e.message + '\n\n第一次使用時，macOS 會跳出麥克風與「自動化」權限請求，請允許 QuickTime Player 後重試。');
+  }
+}
+
+async function handleStop() {
+  if (!state.recording) return;
+  const btn = $('#btn-stop');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="dot"></span> 封存中…'; }
+  try {
+    const data = await api('/api/recording/stop', { method: 'POST' });
+    state.recording = false;
+    state.recordingStartedAt = null;
+    await openMeeting(data.meeting);
+    await refreshList();
+  } catch (e) {
+    alert('停止錄音失敗：' + e.message);
+    if (btn) { btn.disabled = false; btn.innerHTML = '<span class="dot"></span> 結束並封存'; }
+  }
+}
+
+async function handleUpload(file) {
+  const m = file.name.match(/\.([^.]+)$/);
+  const ext = (m ? m[1] : 'm4a').toLowerCase();
+  const buf = await file.arrayBuffer();
+  try {
+    const data = await api('/api/meetings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream', 'X-Audio-Ext': ext },
+      body: buf
+    });
+    await openMeeting(data.meeting);
+    await refreshList();
+  } catch (e) {
+    alert('上傳失敗：' + e.message);
+  }
+}
+
+async function handleSelect(id) {
+  try {
+    const m = await api(`/api/meetings/${id}`);
+    await openMeeting(m);
+  } catch (e) {
+    alert('讀取失敗：' + e.message);
+  }
+}
+
+async function handleDelete() {
+  if (!state.currentMeetingId) return;
+  if (!confirm('確定解除此卷？此記憶將永遠湮滅。')) return;
+  try {
+    await fetch(`/api/meetings/${state.currentMeetingId}`, { method: 'DELETE' });
+    state.currentMeetingId = null;
+    state.currentMeeting = null;
+    state.transcriptOpen = false;
+    closeStream();
+    await refreshList();
+    render();
+  } catch (e) {
+    alert('刪除失敗：' + e.message);
+  }
+}
+
+function handleBackToIdle() {
+  state.currentMeetingId = null;
+  state.currentMeeting = null;
+  state.transcriptOpen = false;
+  closeStream();
+  render();
+}
+
+// ── Meeting helpers ────────────────────────────────────────
+async function openMeeting(meeting) {
+  state.currentMeetingId = meeting.id;
+  state.currentMeeting = meeting;
+  state.transcriptOpen = false;
+
+  // For finished meetings, fetch full content
+  if (meeting.stage === 'done' || meeting.stage === 'error') {
+    try {
+      const full = await api(`/api/meetings/${meeting.id}`);
+      state.currentMeeting = full;
+    } catch {}
+  }
+
+  openStream(meeting.id);
+  render();
+}
+
+function openStream(id) {
+  closeStream();
+  currentEventSource = new EventSource(`/stream/${id}`);
+  currentEventSource.addEventListener('stage', async (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      if (state.currentMeeting && state.currentMeetingId === id) {
+        state.currentMeeting = { ...state.currentMeeting, stage: d.stage, stageMsg: d.msg };
+      }
+      await refreshList();
+      render();
+    } catch {}
+  });
+  currentEventSource.addEventListener('done', async (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      state.currentMeeting = d.meeting;
+      await refreshList();
+      render();
+    } catch {}
+  });
+  currentEventSource.addEventListener('error', async (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      if (state.currentMeeting && state.currentMeetingId === id) {
+        state.currentMeeting = { ...state.currentMeeting, stage: 'error', stageMsg: d.msg };
+        render();
+      }
+    } catch {}
+  });
+}
+function closeStream() {
+  if (currentEventSource) { currentEventSource.close(); currentEventSource = null; }
+}
+
+async function refreshList() {
+  try {
+    const list = await api('/api/meetings');
+    state.records = Array.isArray(list) ? list : [];
+    renderSidebar();
+  } catch (e) {
+    console.warn('refresh failed', e);
+  }
+}
+
+// ── Wire global controls ───────────────────────────────────
+function wireGlobal() {
+  $('#theme-toggle').addEventListener('click', () => {
+    applyTheme(state.theme === 'night' ? 'day' : 'night');
+  });
+
+  // Settings dropdown
+  const settingsBtn = $('#settings-btn');
+  const settingsMenu = $('#settings-menu');
+  const closeSettings = () => {
+    settingsMenu.classList.remove('open');
+    settingsBtn.classList.remove('open');
+  };
+  const toggleSettings = (e) => {
+    e.stopPropagation();
+    const isOpen = settingsMenu.classList.toggle('open');
+    settingsBtn.classList.toggle('open', isOpen);
+  };
+  settingsBtn.addEventListener('click', toggleSettings);
+  settingsMenu.addEventListener('click', (e) => e.stopPropagation());
+  document.addEventListener('click', (e) => {
+    if (!settingsMenu.classList.contains('open')) return;
+    if (e.target.closest('#settings-menu') || e.target.closest('#settings-btn')) return;
+    closeSettings();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeSettings();
+  });
+  $('#new-btn').addEventListener('click', handleBackToIdle);
+  $('#search-input').addEventListener('input', (e) => {
+    state.searchQuery = e.target.value || '';
+    renderSidebar();
+  });
+  $('#file-input').addEventListener('change', (e) => {
+    const f = e.target.files?.[0];
+    if (f) handleUpload(f);
+    e.target.value = '';
+  });
+
+  // Keyboard: Cmd/Ctrl+N for new
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n') {
+      e.preventDefault();
+      handleBackToIdle();
+    }
+    if (e.key === 'Escape' && state.recording) {
+      // Don't accidentally stop on Esc; just blur focus
+      document.activeElement?.blur?.();
+    }
+  });
+
+  // Global drag/drop fallback (when not on idle dropzone)
+  document.addEventListener('dragover', e => e.preventDefault());
+  document.addEventListener('drop', e => {
+    if (e.target.closest('#dropzone')) return; // handled inside
+    e.preventDefault();
+    const f = e.dataTransfer?.files?.[0];
+    if (f) handleUpload(f);
+  });
+}
+
+// ── Init ───────────────────────────────────────────────────
+async function init() {
+  applyTheme(state.theme);
+  renderMascotPill();
+  renderMascotPicker();
+  wireGlobal();
+
+  try {
+    const s = await api('/api/recording/status');
+    if (s.active) {
+      state.recording = true;
+      state.recordingStartedAt = s.startedAt || Date.now();
+    }
+  } catch {}
+
+  await refreshList();
+  render();
+}
+
+init();
+</script>
+</body>
+</html>

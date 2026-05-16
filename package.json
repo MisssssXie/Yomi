@@ -1,0 +1,10 @@
+{
+  "name": "yomi",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "stop": "lsof -ti:${PORT:-3748} | xargs kill -9 2>/dev/null || true",
+    "restart": "npm run stop && npm start"
+  }
+}
