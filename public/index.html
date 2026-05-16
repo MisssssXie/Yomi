@@ -519,6 +519,30 @@
     .stage-body::-webkit-scrollbar { width: 6px; }
     .stage-body::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
 
+    /* ── Idle view：鋪滿視口、禁止滾動，依高度自適應 ── */
+    .stage-body.idle {
+      overflow: hidden;
+      justify-content: center;
+      padding: clamp(12px, 2.4vh, 28px) 32px;
+      gap: clamp(6px, 1.4vh, 18px);
+    }
+    .stage-body.idle .eyebrow      { margin-top: 0;  font-size: clamp(20px, 2.6vh, 28px); }
+    .stage-body.idle .eyebrow-en   { margin-top: 0; }
+    .stage-body.idle .mascot-wrap  {
+      width: min(280px, 34vh);
+      height: min(280px, 34vh);
+      margin-top: 0;
+    }
+    .stage-body.idle .mascot       {
+      width:  min(168px, 20.5vh);
+      height: min(168px, 20.5vh);
+    }
+    .stage-body.idle .timer        { font-size: clamp(34px, 5vh, 56px); margin-top: 0; }
+    .stage-body.idle .helper       { margin-top: 0; line-height: 1.65; font-size: clamp(12px, 1.7vh, 14px); }
+    .stage-body.idle .dropzone     { margin-top: 0; padding: clamp(8px, 1.4vh, 14px) 18px; }
+    .stage-body.idle .controls     { margin-top: 0; }
+    .stage-body.idle .ornament     { margin-top: clamp(2px, 1vh, 18px); }
+
     .eyebrow {
       font-family: "Klee One", "Shippori Mincho", "Noto Serif TC", serif;
       font-weight: 600;
@@ -587,6 +611,177 @@
     .mascot-ring.fast { animation-duration: 12s; }
     @keyframes spin {
       to { transform: rotate(360deg); }
+    }
+
+    /* ── 調動忍術靈魂（processing 階段）：浮動 + 查克拉光環 + 軌道能量 + 浮升印字 ── */
+    .mascot-wrap.channeling .mascot {
+      animation: mascotFloat 2.8s ease-in-out infinite;
+      filter: drop-shadow(0 0 8px color-mix(in oklab, var(--jade) 40%, transparent));
+    }
+    @keyframes mascotFloat {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-5px); }
+    }
+
+    .chakra-aura {
+      position: absolute;
+      inset: 48px;
+      border-radius: 50%;
+      pointer-events: none;
+      background: radial-gradient(closest-side,
+        color-mix(in oklab, var(--jade) 26%, transparent),
+        transparent 75%);
+      filter: blur(4px);
+      animation: chakraAura 3.2s ease-in-out infinite;
+    }
+    @keyframes chakraAura {
+      0%, 100% { opacity: 0.45; transform: scale(0.95); }
+      50%      { opacity: 1;    transform: scale(1.10); }
+    }
+
+    .chakra-ring {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .chakra-ring.mid {
+      inset: 42px;
+      border: 1px dotted color-mix(in oklab, var(--moon) 55%, transparent);
+      animation: spin 9s linear infinite;
+    }
+    .chakra-ring.inner {
+      inset: 64px;
+      border: 1px dashed color-mix(in oklab, var(--jade) 60%, transparent);
+      animation: spin 4.5s linear infinite reverse;
+    }
+
+    .chakra-pulse {
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 70px; height: 70px;
+      margin: -35px 0 0 -35px;
+      border-radius: 50%;
+      border: 1.5px solid color-mix(in oklab, var(--jade) 65%, transparent);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .chakra-pulse.p1 { animation: chakraPulse 3s ease-out infinite; }
+    .chakra-pulse.p2 {
+      animation: chakraPulse 3s ease-out 1.5s infinite;
+      border-color: color-mix(in oklab, var(--moon) 60%, transparent);
+    }
+    @keyframes chakraPulse {
+      0%   { transform: scale(0.4); opacity: 0; }
+      15%  { opacity: 0.85; }
+      100% { transform: scale(2.6); opacity: 0; }
+    }
+
+    /* 庫洛牌風格的環繞牌陣：8 張卡圍成一圈、整副 deck 緩慢自轉 */
+    .card-deck {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      animation: spin 22s linear infinite;
+    }
+    .card-deck.inner {
+      animation: spin 14s linear infinite reverse;
+    }
+    .clow-card {
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 18px; height: 26px;
+      margin: -13px 0 0 -9px;
+      border-radius: 3px;
+      background:
+        linear-gradient(135deg,
+          color-mix(in oklab, var(--paper-3) 88%, var(--sakura) 12%),
+          color-mix(in oklab, var(--paper-3) 82%, var(--moon) 18%));
+      border: 1px solid color-mix(in oklab, var(--sakura) 50%, var(--moon) 30%);
+      box-shadow:
+        0 0 6px color-mix(in oklab, var(--sakura) 55%, transparent),
+        0 0 14px color-mix(in oklab, var(--moon) 32%, transparent),
+        inset 0 0 4px color-mix(in oklab, var(--sakura) 25%, transparent);
+      display: grid; place-items: center;
+      font-family: "Shippori Mincho", serif;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0;
+      color: color-mix(in oklab, var(--ink) 75%, var(--sakura) 25%);
+      text-shadow: 0 0 4px color-mix(in oklab, var(--sakura) 70%, transparent);
+      animation: cardBreathe 3.4s ease-in-out infinite;
+    }
+    .clow-card::before {
+      content: "";
+      position: absolute; inset: 2px;
+      border-radius: 2px;
+      border: 0.5px solid color-mix(in oklab, var(--moon) 45%, transparent);
+      pointer-events: none;
+    }
+    @keyframes cardBreathe {
+      0%, 100% { opacity: 0.78; }
+      50%      { opacity: 1; }
+    }
+    /* 外圈 8 張卡平均散布；translateY 是徑向外推、用 rotate 排出角度 */
+    .card-deck > .clow-card:nth-child(1) { transform: rotate(0deg)   translateY(-118px); animation-delay: 0s;    }
+    .card-deck > .clow-card:nth-child(2) { transform: rotate(45deg)  translateY(-118px); animation-delay: -0.4s; }
+    .card-deck > .clow-card:nth-child(3) { transform: rotate(90deg)  translateY(-118px); animation-delay: -0.8s; }
+    .card-deck > .clow-card:nth-child(4) { transform: rotate(135deg) translateY(-118px); animation-delay: -1.2s; }
+    .card-deck > .clow-card:nth-child(5) { transform: rotate(180deg) translateY(-118px); animation-delay: -1.6s; }
+    .card-deck > .clow-card:nth-child(6) { transform: rotate(225deg) translateY(-118px); animation-delay: -2.0s; }
+    .card-deck > .clow-card:nth-child(7) { transform: rotate(270deg) translateY(-118px); animation-delay: -2.4s; }
+    .card-deck > .clow-card:nth-child(8) { transform: rotate(315deg) translateY(-118px); animation-delay: -2.8s; }
+
+    /* 內圈 4 張較小、較淡的卡 */
+    .card-deck.inner > .clow-card {
+      width: 13px; height: 19px;
+      margin: -9.5px 0 0 -6.5px;
+      font-size: 8px;
+      opacity: 0.75;
+      box-shadow:
+        0 0 4px color-mix(in oklab, var(--moon) 55%, transparent),
+        0 0 10px color-mix(in oklab, var(--sakura) 28%, transparent);
+    }
+    .card-deck.inner > .clow-card:nth-child(1) { transform: rotate(22deg)  translateY(-72px); animation-delay: -0.6s; }
+    .card-deck.inner > .clow-card:nth-child(2) { transform: rotate(112deg) translateY(-72px); animation-delay: -1.4s; }
+    .card-deck.inner > .clow-card:nth-child(3) { transform: rotate(202deg) translateY(-72px); animation-delay: -2.2s; }
+    .card-deck.inner > .clow-card:nth-child(4) { transform: rotate(292deg) translateY(-72px); animation-delay: -3.0s; }
+
+    .kanji-rise {
+      position: absolute;
+      left: 50%; top: 50%;
+      font-family: "Shippori Mincho", serif;
+      font-size: 22px;
+      font-weight: 500;
+      color: var(--jade);
+      opacity: 0;
+      pointer-events: none;
+      text-shadow: 0 0 12px color-mix(in oklab, var(--jade) 60%, transparent);
+      will-change: transform, opacity;
+    }
+    @keyframes kanjiRise {
+      0%   { opacity: 0;    transform: translate(-50%, 30px)   scale(0.55); }
+      18%  { opacity: 0.92; transform: translate(-50%, -20px)  scale(1.05); }
+      100% { opacity: 0;    transform: translate(-50%, -140px) scale(1.2); }
+    }
+    .kanji-rise.k1 { animation: kanjiRise 5s ease-out 0s infinite; }
+    .kanji-rise.k2 {
+      animation: kanjiRise 5s ease-out 1.7s infinite;
+      color: var(--moon);
+      text-shadow: 0 0 12px color-mix(in oklab, var(--moon) 60%, transparent);
+    }
+    .kanji-rise.k3 {
+      animation: kanjiRise 5s ease-out 3.3s infinite;
+      color: var(--sakura);
+      text-shadow: 0 0 12px color-mix(in oklab, var(--sakura) 60%, transparent);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .mascot-wrap.channeling .mascot,
+      .chakra-aura, .chakra-ring, .chakra-pulse, .card-deck, .clow-card, .kanji-rise {
+        animation: none !important;
+      }
+      .chakra-pulse, .kanji-rise { opacity: 0 !important; }
+      .mascot-wrap.channeling .mascot { transform: none !important; filter: none !important; }
     }
 
     .mascot {
@@ -799,7 +994,115 @@
       position: relative;
       background: color-mix(in oklab, var(--paper-3) 85%, var(--seal) 4%);
     }
+    /* 印章下移，避開右上 scroll-actions 的 icon 按鈕（NotebookLM / 重新摘要 / 解除） */
+    .scroll-hd .seal { margin-top: 26px; }
     .seal .stack { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+
+    /* ── 摘要頁靈動 enter 動畫（每卷第一次進入時播放一次） ──────────────── */
+    @keyframes yomiFadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes yomiSealStamp {
+      0%   { opacity: 0; transform: rotate(-32deg) scale(0.55); }
+      55%  { opacity: 1; transform: rotate(-4deg)  scale(1.10); }
+      75%  { opacity: 1; transform: rotate(-7deg)  scale(0.98); }
+      100% { opacity: 1; transform: rotate(-6deg)  scale(1); }
+    }
+    @keyframes yomiSealBreathe {
+      0%, 100% { transform: rotate(-6deg) scale(1); }
+      50%      { transform: rotate(-5deg) scale(1.018); }
+    }
+    @keyframes yomiLineExtend {
+      from { width: 0; opacity: 0; }
+      to   { width: 14px; opacity: 1; }
+    }
+    @keyframes yomiCharDrop {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes yomiTitleSweep {
+      0%   { background-position: -120% 0; }
+      100% { background-position: 220% 0; }
+    }
+    @keyframes yomiMoteDrift {
+      0%   { transform: translate(0, 0) scale(0.8); opacity: 0; }
+      15%  { opacity: 0.55; }
+      85%  { opacity: 0.4; }
+      100% { transform: translate(28px, -34px) scale(1.05); opacity: 0; }
+    }
+
+    .scroll-card.enter { animation: yomiFadeUp 0.55s cubic-bezier(.2,.7,.2,1) both; }
+    .scroll-card.enter .scroll-hd .seal {
+      animation:
+        yomiSealStamp 0.7s cubic-bezier(.4,1.6,.5,1) 0.18s both,
+        yomiSealBreathe 5.5s ease-in-out 1.4s infinite;
+    }
+    .scroll-card.enter .scroll-section h4::before {
+      animation: yomiLineExtend 0.5s ease-out 0.35s both;
+    }
+    .scroll-card.enter .scroll-section:nth-of-type(2) h4::before { animation-delay: 0.45s; }
+    .scroll-card.enter .scroll-section:nth-of-type(3) h4::before { animation-delay: 0.55s; }
+
+    .scroll-card.enter .chips .chip,
+    .scroll-card.enter .chips .chip.link {
+      opacity: 0;
+      animation: yomiFadeUp 0.4s cubic-bezier(.2,.7,.2,1) both;
+    }
+    .scroll-card.enter .chips > *:nth-child(1) { animation-delay: 0.20s; }
+    .scroll-card.enter .chips > *:nth-child(2) { animation-delay: 0.28s; }
+    .scroll-card.enter .chips > *:nth-child(3) { animation-delay: 0.36s; }
+    .scroll-card.enter .chips > *:nth-child(4) { animation-delay: 0.44s; }
+
+    .scroll-card.enter .seal .stack > span {
+      display: inline-block;
+      animation: yomiCharDrop 0.32s ease-out both;
+    }
+    .scroll-card.enter .seal .stack > span:nth-child(1) { animation-delay: 0.55s; }
+    .scroll-card.enter .seal .stack > span:nth-child(2) { animation-delay: 0.64s; }
+    .scroll-card.enter .seal .stack > span:nth-child(3) { animation-delay: 0.73s; }
+
+    /* 標題一筆掠過的微微高光（只在 enter 時播一次） */
+    .scroll-card.enter .scroll-title {
+      background-image: linear-gradient(
+        100deg,
+        transparent 0%,
+        transparent 38%,
+        color-mix(in oklab, var(--moon) 35%, transparent) 50%,
+        transparent 62%,
+        transparent 100%
+      );
+      background-size: 220% 100%;
+      background-repeat: no-repeat;
+      -webkit-background-clip: text;
+      background-clip: text;
+      animation: yomiTitleSweep 1.4s cubic-bezier(.4,.1,.3,1) 0.5s 1;
+    }
+
+    /* 持續飄逸的小墨點，營造靈動氛圍。每隔幾秒從卷軸右下角浮起一粒。 */
+    .scroll-card .mote {
+      position: absolute;
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: color-mix(in oklab, var(--moon) 55%, transparent);
+      box-shadow: 0 0 8px color-mix(in oklab, var(--moon) 35%, transparent);
+      pointer-events: none;
+      opacity: 0;
+    }
+    .scroll-card .mote.m1 { right: 60px;  bottom: 80px;  animation: yomiMoteDrift 6.5s ease-in-out 0.4s infinite; }
+    .scroll-card .mote.m2 { right: 110px; bottom: 130px; animation: yomiMoteDrift 7.5s ease-in-out 2.2s infinite; background: color-mix(in oklab, var(--jade) 50%, transparent); box-shadow: 0 0 8px color-mix(in oklab, var(--jade) 30%, transparent); }
+    .scroll-card .mote.m3 { right: 80px;  bottom: 200px; animation: yomiMoteDrift 8.5s ease-in-out 4.0s infinite; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .scroll-card,
+      .scroll-card.enter,
+      .scroll-card.enter .seal,
+      .scroll-card.enter .scroll-section h4::before,
+      .scroll-card.enter .chips > *,
+      .scroll-card.enter .seal .stack > span,
+      .scroll-card.enter .scroll-title,
+      .scroll-card .mote { animation: none !important; opacity: 1 !important; transform: none !important; }
+    }
 
     .scroll-section { padding-top: 18px; }
     .scroll-section + .scroll-section { margin-top: 6px; }
@@ -944,7 +1247,28 @@
       font-weight: 600;
     }
     .source-hd .source-meta { font-size: 12px; color: var(--ink-mute); }
+    .source-hd .source-title {
+      font-family: "Shippori Mincho", serif;
+      color: var(--ink);
+      font-size: 13px;
+      max-width: 280px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
     .source-hd .source-spacer { flex: 1; }
+    .source-hd .source-actions { display: inline-flex; gap: 4px; }
+    .source-hd .source-action-btn {
+      width: 26px; height: 26px;
+      padding: 0;
+      border-radius: 7px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--ink-mute);
+      display: grid; place-items: center;
+      cursor: pointer;
+      transition: color .12s ease, background .12s ease, border-color .12s ease;
+    }
+    .source-hd .source-action-btn:hover { color: var(--seal); border-color: var(--seal); background: color-mix(in oklab, var(--seal) 6%, transparent); }
+    .source-hd .source-action-btn[data-action="rename"]:hover { color: var(--moon); border-color: var(--moon); background: color-mix(in oklab, var(--moon) 8%, transparent); }
     .source-hd .chev { transition: transform .2s ease; color: var(--ink-mute); }
     .source-item.open .chev { transform: rotate(180deg); }
     .source-body {
@@ -1621,6 +1945,7 @@ let state = {
   sourceModal: null,           // { kind, mode } | null 通用來源 modal
   theme: localStorage.getItem('yomi-theme') || 'day',
   mascot: localStorage.getItem('yomi-mascot') || 'neko',  // 'neko' | 'tsuki'
+  lastAnimatedMeeting: null,   // 摘要 enter 動畫只在切換到不同卷時播放，避免每次 toggle source 都重播
 };
 
 let timerInterval = null;
@@ -1628,6 +1953,7 @@ let waveformInterval = null;
 let snippetInterval = null;
 let snippetIndex = 0;
 let currentEventSource = null;
+let lastRenderedView = null;   // 用來判斷是否同一個 view 內的局部更新（避免 processing 間動畫重播）
 
 const SNIPPETS = [
   '正在聆聽錄音的呼吸…',
@@ -1870,6 +2196,14 @@ const MASCOT_OPTS = [
   { kind: 'tsuki', name: '月 兔' },
 ];
 
+// 不帶空格的版本，用在句子裡（如「輕觸月兔」），帶空格的版本用在標籤
+function mascotName(spaced = false) {
+  const opt = MASCOT_OPTS.find(o => o.kind === state.mascot);
+  const fallback = spaced ? '忍 貓' : '忍貓';
+  if (!opt) return fallback;
+  return spaced ? opt.name : opt.name.replace(/\s+/g, '');
+}
+
 function renderMascotPill() {
   const av = $('#mascot-pill-avatar');
   const nm = $('#mascot-pill-name');
@@ -1980,14 +2314,54 @@ function renderSidebar() {
 
 function renderStage() {
   const body = $('#stage-body');
+
+  // 同樣留在 processing：只局部更新四步驟，保留忍貓／月兔的調動忍術靈魂動畫
+  if (state.view === 'processing' && lastRenderedView === 'processing') {
+    updateProcessingPartial();
+    lastRenderedView = state.view;
+    return;
+  }
+
   if (state.view === 'idle') body.innerHTML = tplIdle();
   else if (state.view === 'recording') body.innerHTML = tplRecording();
   else if (state.view === 'processing') body.innerHTML = tplProcessing();
   else if (state.view === 'summary') body.innerHTML = tplSummary();
   else if (state.view === 'error') body.innerHTML = tplError();
 
+  // 待機畫面要鋪滿視口、不滾動；其他 view 維持原本可捲動
+  body.classList.toggle('idle', state.view === 'idle');
+
   wireStage();
   startSubsystemsForView();
+
+  // 摘要 enter 動畫只在切換到不同卷時播放一次；同卷後續 render（toggle source 等）不重播
+  if (state.view === 'summary' && state.currentMeeting) {
+    state.lastAnimatedMeeting = state.currentMeeting.id;
+  }
+
+  lastRenderedView = state.view;
+}
+
+// 在 processing → processing 切換時只刷新四步驟與標題，
+// 避免 body.innerHTML 重設導致 mascot-wrap 的 keyframe 動畫全部重播。
+function updateProcessingPartial() {
+  const m = state.currentMeeting || {};
+  const steps = buildSteps(m.stage);
+
+  const stepsEl = $('.processing-card .steps');
+  if (stepsEl) {
+    stepsEl.innerHTML = steps.map((s, i) => `
+      <div class="step ${s.state}">
+        <div class="num">${s.state === 'done' ? '✓' : (i + 1)}</div>
+        <div>${s.label}</div>
+        ${s.state === 'active' ? '<div class="spinner"></div>' : ''}
+        ${s.state === 'done' ? '<div class="check">已完成</div>' : ''}
+      </div>
+    `).join('');
+  }
+
+  const titleEl = $('.processing-card > div:first-child');
+  if (titleEl) titleEl.textContent = m.title || '處理中';
 }
 
 // ── Templates ──────────────────────────────────────────────
@@ -2007,7 +2381,7 @@ function tplIdle() {
     <div class="timer" aria-hidden="true">00:00</div>
 
     <div class="helper">
-      輕觸忍貓開始<span class="strong">錄音</span>，一切聲響將被封入卷軸。<br/>
+      輕觸${mascotName()}開始<span class="strong">錄音</span>，一切聲響將被封入卷軸。<br/>
       或 <a id="helper-upload">上傳既有音檔</a>，交予月讀閱讀。
     </div>
 
@@ -2102,9 +2476,33 @@ function tplProcessing() {
     <div class="eyebrow" style="color: ${errored ? 'var(--seal)' : 'var(--jade)'}">月 讀 · 閱 讀 中</div>
     <div class="eyebrow-en">Reading the scroll…</div>
 
-    <div class="mascot-wrap">
+    <div class="mascot-wrap channeling">
       <div class="mascot-halo processing"></div>
+      <div class="chakra-aura" aria-hidden="true"></div>
       <div class="mascot-ring"></div>
+      <div class="chakra-ring mid" aria-hidden="true"></div>
+      <div class="chakra-ring inner" aria-hidden="true"></div>
+      <div class="chakra-pulse p1" aria-hidden="true"></div>
+      <div class="chakra-pulse p2" aria-hidden="true"></div>
+      <div class="card-deck" aria-hidden="true">
+        <span class="clow-card">月</span>
+        <span class="clow-card">讀</span>
+        <span class="clow-card">印</span>
+        <span class="clow-card">結</span>
+        <span class="clow-card">忍</span>
+        <span class="clow-card">凝</span>
+        <span class="clow-card">解</span>
+        <span class="clow-card">卷</span>
+      </div>
+      <div class="card-deck inner" aria-hidden="true">
+        <span class="clow-card">陰</span>
+        <span class="clow-card">陽</span>
+        <span class="clow-card">封</span>
+        <span class="clow-card">夢</span>
+      </div>
+      <span class="kanji-rise k1" aria-hidden="true">印</span>
+      <span class="kanji-rise k2" aria-hidden="true">結</span>
+      <span class="kanji-rise k3" aria-hidden="true">忍</span>
       <div class="mascot">
         ${mascotSvg('processing', false, state.mascot)}
       </div>
@@ -2142,11 +2540,15 @@ function tplSummary() {
 
   const sources = Array.isArray(m.sources) ? m.sources : [];
 
+  const enter = state.lastAnimatedMeeting === m.id ? '' : ' enter';
   return `
     <div class="eyebrow">卷 · 軸 · 完 · 成</div>
     <div class="eyebrow-en">The scroll is sealed</div>
 
-    <div class="scroll-card">
+    <div class="scroll-card${enter}">
+      <span class="mote m1" aria-hidden="true"></span>
+      <span class="mote m2" aria-hidden="true"></span>
+      <span class="mote m3" aria-hidden="true"></span>
       <div class="scroll-actions">
         ${m.notebookId ? `
           <a class="icon-ghost" href="${notebookLmUrl(m.notebookId)}" target="_blank" rel="noopener" title="在 NotebookLM 開啟" style="text-decoration:none">
@@ -2154,6 +2556,11 @@ function tplSummary() {
               <path d="M6 3 H3 V13 H13 V10 M9 3 H13 V7 M13 3 L8 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </a>
+          <button class="icon-ghost" id="btn-resummarize" title="依目前所有來源重新整理摘要">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M3 8 a5 5 0 1 1 1.8 3.7 M3 4 V8 H7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
         ` : ''}
         <button class="icon-ghost" id="btn-delete" title="解除此卷">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -2207,8 +2614,21 @@ function tplSummary() {
                 <div class="source-hd" data-toggle="${i}">
                   <span class="source-num">第 ${i + 1} 段</span>
                   ${kindChip}
+                  ${s.title ? `<span class="source-title" title="${escapeHtml(s.title)}">${escapeHtml(s.title)}</span>` : ''}
                   <span class="source-meta">${escapeHtml(meta)}</span>
                   <span class="source-spacer"></span>
+                  <span class="source-actions">
+                    <button class="source-action-btn" data-action="rename" data-idx="${i}" title="改名" aria-label="改名第 ${i + 1} 段">
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                        <path d="M3 13 L3 11 L11 3 L13 5 L5 13 Z M10 4 L12 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </button>
+                    <button class="source-action-btn" data-action="delete" data-idx="${i}" title="刪除此段（NotebookLM 上也會刪）" aria-label="刪除第 ${i + 1} 段">
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                        <path d="M3 5 H13 M6 5 V3 H10 V5 M5 5 L6 13 H10 L11 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </button>
+                  </span>
                   <svg class="chev" width="12" height="12" viewBox="0 0 12 12" fill="none">
                     <path d="M3 5 L6 8 L9 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                   </svg>
@@ -2351,12 +2771,24 @@ function wireStage() {
 
   // Summary
   $$('.source-hd').forEach(el => {
-    el.addEventListener('click', () => {
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('.source-action-btn')) return; // 讓 rename / delete 自己處理
       const idx = Number(el.dataset.toggle);
       state.openSources[idx] = !state.openSources[idx];
       renderStage();
     });
   });
+  $$('.source-action-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = Number(btn.dataset.idx);
+      const action = btn.dataset.action;
+      if (action === 'rename') handleSourceRename(idx);
+      else if (action === 'delete') handleSourceDelete(idx);
+    });
+  });
+  const btnResummarize = $('#btn-resummarize');
+  if (btnResummarize) btnResummarize.addEventListener('click', handleResummarize);
 
   // Source pickers (Idle + Append)
   wireSourcePicker('btn-source-create', 'create');
@@ -2806,8 +3238,66 @@ function handleBackToIdle() {
   state.transcriptOpen = false;
   state.openSources = {};
   state.appendingTo = null;
+  state.lastAnimatedMeeting = null;
   closeStream();
   render();
+}
+
+async function handleSourceRename(idx) {
+  const m = state.currentMeeting;
+  const src = m?.sources?.[idx];
+  if (!src) return;
+  const next = window.prompt(`為第 ${idx + 1} 段命名（或更新名稱）：`, src.title || '');
+  if (next == null) return;
+  const trimmed = next.trim();
+  if (!trimmed) return;
+  if (trimmed === (src.title || '')) return;
+  try {
+    const r = await api(`/api/meetings/${state.currentMeetingId}/sources/${idx}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: trimmed })
+    });
+    state.currentMeeting = r.meeting;
+    renderStage();
+    if (r.warning) alert('本地已改名，但同步 NotebookLM 失敗：\n' + r.warning);
+  } catch (e) {
+    alert('改名失敗：' + e.message);
+  }
+}
+
+async function handleSourceDelete(idx) {
+  const m = state.currentMeeting;
+  const src = m?.sources?.[idx];
+  if (!src) return;
+  const total = m.sources.length;
+  const label = src.title || `第 ${idx + 1} 段`;
+  const extra = total === 1
+    ? '\n\n提醒：這是此卷僅有的來源，刪除後卷宗會留空，可考慮直接「解除此卷」。'
+    : '\n\n刪完後記得按「重新摘要」讓月讀之言對齊新內容。';
+  if (!confirm(`確定刪除「${label}」？此來源在 NotebookLM 上也會被永久刪除。${extra}`)) return;
+  try {
+    const r = await api(`/api/meetings/${state.currentMeetingId}/sources/${idx}`, { method: 'DELETE' });
+    state.currentMeeting = r.meeting;
+    state.openSources = {};
+    renderStage();
+    if (r.warning) alert('本地已刪除，但 NotebookLM 端刪除失敗：\n' + r.warning);
+  } catch (e) {
+    alert('刪除失敗：' + e.message);
+  }
+}
+
+async function handleResummarize() {
+  const m = state.currentMeeting;
+  if (!m || !state.currentMeetingId) return;
+  if (!(m.sources?.length)) { alert('此卷目前沒有任何來源，無法重新摘要。'); return; }
+  if (!confirm('重新摘要會依目前所有來源重跑一次 NotebookLM；過程中此卷會回到處理中。確定？')) return;
+  try {
+    await api(`/api/meetings/${state.currentMeetingId}/resummarize`, { method: 'POST' });
+    // 後續 stage 變化由 SSE 推回，render 會自然切到 processing
+  } catch (e) {
+    alert('重新摘要失敗：' + e.message);
+  }
 }
 
 // ── Meeting helpers ────────────────────────────────────────

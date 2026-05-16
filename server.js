@@ -356,6 +356,37 @@ async function appendSourceToMeeting(meeting, sourceIndex) {
   }
 }
 
+// 用既有 notebook 重跑摘要（用於刪除／改名 source 之後，或使用者手動觸發）
+// 失敗時保留舊摘要，把錯誤訊息掛在 meeting.appendError
+async function resummarizeMeeting(meeting) {
+  const previousSummary = meeting.summary;
+  const previousCompletedAt = meeting.completedAt;
+  appendingMeetings.add(meeting.id);
+  try {
+    if (!meeting.notebookId) throw new Error('此卷宗尚未建立 NotebookLM 筆記，無法重新摘要');
+    checkCancelled(meeting);
+    pushStage(meeting, 'summarizing', '重新摘要中…');
+    const qRes = await runForMeeting(meeting.id, NLM_BIN, ['notebook', 'query', meeting.notebookId, SUMMARY_PROMPT]);
+    meeting.summary = validateSummary(qRes.stdout);
+    meeting.completedAt = new Date().toISOString();
+    delete meeting.appendError;
+    pushStage(meeting, 'done', '完成');
+    broadcast(meeting.id, 'done', { meeting });
+  } catch (e) {
+    const raw = String(e.message || e);
+    const wasCancel = raw.includes('__CANCELLED__') || meeting.cancelled;
+    const friendly = wasCancel ? '已取消重新摘要' : friendlyError(raw);
+    meeting.summary = previousSummary;
+    meeting.completedAt = previousCompletedAt;
+    meeting.cancelled = false;
+    meeting.appendError = wasCancel ? '已取消重新摘要；保留先前摘要。' : `重新摘要失敗：${friendly}`;
+    pushStage(meeting, 'done', '完成');
+    broadcast(meeting.id, 'append-error', { msg: meeting.appendError, meeting });
+  } finally {
+    appendingMeetings.delete(meeting.id);
+  }
+}
+
 // 預設標題
 function defaultTitle(kind, payload) {
   const now = new Date();
@@ -632,6 +663,78 @@ const server = http.createServer((req, res) => {
       sendJson(res, 200, { meeting: m });
       appendSourceToMeeting(m, m.sources.length - 1);
     });
+    return;
+  }
+
+  // 對單一 source 的改名 / 刪除
+  const sourceItemMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/sources\/(\d+)$/);
+  if (sourceItemMatch && (req.method === 'DELETE' || req.method === 'PATCH')) {
+    const id = Number(sourceItemMatch[1]);
+    const idx = Number(sourceItemMatch[2]);
+    const m = state.meetings.find(x => x.id === id);
+    if (!m) return sendJson(res, 404, { error: 'not found' });
+    if (!TERMINAL_STAGES.has(m.stage)) {
+      return sendJson(res, 400, { error: '卷宗處理中，無法編輯來源；請先取消或等候完成' });
+    }
+    const src = m.sources?.[idx];
+    if (!src) return sendJson(res, 404, { error: 'source not found' });
+
+    if (req.method === 'DELETE') {
+      // NotebookLM 端有對應 source 就嘗試刪
+      const nlmTask = src.sourceId
+        ? run(NLM_BIN, ['source', 'delete', src.sourceId, '--confirm']).then(() => null).catch(e => String(e.message || e))
+        : Promise.resolve(null);
+      nlmTask.then(warning => {
+        const removed = m.sources.splice(idx, 1)[0];
+        if (removed?.audioFile) {
+          try { fs.unlinkSync(path.join(RECORDINGS_DIR, removed.audioFile)); } catch {}
+        }
+        save();
+        sendJson(res, 200, { meeting: m, nlmDeleted: !warning, warning: warning || undefined });
+      });
+      return;
+    }
+
+    // PATCH — 改名
+    const chunks = [];
+    req.on('data', c => chunks.push(c));
+    req.on('end', async () => {
+      let body;
+      try { body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); }
+      catch { return sendJson(res, 400, { error: 'invalid json' }); }
+      const title = String(body.title || '').trim();
+      if (!title) return sendJson(res, 400, { error: '標題不可為空' });
+      const prev = src.title;
+      src.title = title;
+      save();
+      if (src.sourceId && m.notebookId) {
+        try {
+          await run(NLM_BIN, ['source', 'rename', src.sourceId, title, '--notebook', m.notebookId]);
+          sendJson(res, 200, { meeting: m, synced: true });
+        } catch (e) {
+          // 本地已存，NotebookLM 端失敗就回 warning（不 rollback，避免使用者覺得改不到）
+          sendJson(res, 200, { meeting: m, synced: false, warning: String(e.message || e) });
+        }
+      } else {
+        sendJson(res, 200, { meeting: m, synced: false });
+      }
+    });
+    return;
+  }
+
+  // 對既有 notebook 重新跑摘要（用於刪除 source 後手動觸發）
+  const resummarizeMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/resummarize$/);
+  if (req.method === 'POST' && resummarizeMatch) {
+    const id = Number(resummarizeMatch[1]);
+    const m = state.meetings.find(x => x.id === id);
+    if (!m) return sendJson(res, 404, { error: 'not found' });
+    if (m.stage !== 'done') return sendJson(res, 400, { error: '只有已封印（done）的卷宗能重新摘要' });
+    if (!m.notebookId) return sendJson(res, 400, { error: '此卷宗沒有對應的 NotebookLM 筆記，無法重新摘要' });
+    if (!m.sources?.length) return sendJson(res, 400, { error: '此卷宗目前沒有任何來源，無法產生摘要' });
+    m.cancelled = false;
+    m.error = undefined;
+    sendJson(res, 200, { meeting: m });
+    resummarizeMeeting(m);
     return;
   }
 
