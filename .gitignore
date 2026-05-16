@@ -1,0 +1,19 @@
+# Runtime data — 內含使用者的會議資料與音檔，不應入庫
+recordings/
+meetings-data.json
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# Logs
+*.log
