@@ -156,6 +156,121 @@ const SUMMARY_PROMPT = `你是專業會議助理。請完整參考此卷宗內**
 2. ...
 3. ...`;
 
+const TODOS_PROMPT = `你是專業會議助理。請從此卷宗所有來源中萃取「待辦事項清單」。
+
+**規則（請嚴格遵守）**：
+- 只能輸出一個合法的 JSON 陣列，不要任何說明、註解、markdown code fence、citation（如 [1]）。
+- 陣列每筆物件需有這些欄位：
+  - "task": string，具體可執行的任務描述（必要、不可為空）。
+  - "owner": string 或 null，負責人姓名；會議中沒指明則為 null。
+  - "due": string 或 null，期限／時程，保留原文（例如「週三」「2026-06-01」「下次會議前」）；若無則 null。
+  - "blockers": string 或 null，前置條件或阻塞；若無則 null。
+  - "priority": "high" / "medium" / "low"，依會議上下文判斷急迫度；不確定填 "medium"。
+- 範例：
+  [{"task":"完成支付功能","owner":"顧編工程師","due":"週三","blockers":null,"priority":"high"}]
+- 如果會議中完全沒有可萃取的待辦事項，輸出空陣列 []。`;
+
+// 把 nlm 回傳的文字裡的 JSON 陣列挖出來；可能被 ```json fence 包住或前後有多餘文字
+function parseTodosJson(answer) {
+  if (!answer) return null;
+  let s = String(answer).trim();
+  s = s.replace(/^```(?:json|JSON)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
+  const i = s.indexOf('[');
+  const j = s.lastIndexOf(']');
+  if (i < 0 || j <= i) return null;
+  let arr;
+  try { arr = JSON.parse(s.slice(i, j + 1)); } catch { return null; }
+  if (!Array.isArray(arr)) return null;
+  return arr
+    .filter(x => x && typeof x === 'object' && typeof x.task === 'string' && x.task.trim())
+    .map(x => normalizeTodo(x, 'nlm'));
+}
+
+function normalizeTodo(x, source) {
+  const valid = v => (typeof v === 'string' && v.trim()) ? v.trim() : null;
+  let priority = String(x.priority || '').toLowerCase();
+  if (!['high', 'medium', 'low'].includes(priority)) priority = 'medium';
+  return {
+    task: String(x.task).trim(),
+    owner: valid(x.owner),
+    due: valid(x.due),
+    blockers: valid(x.blockers),
+    priority,
+    done: false,
+    source,
+  };
+}
+
+// Fallback A：直接從 summary markdown 的「## 行動項目」表格抽待辦
+function parseTodosFromSummary(summary) {
+  if (!summary) return [];
+  const lines = String(summary).split(/\r?\n/);
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^##\s*行動項目/.test(lines[i])) { start = i + 1; break; }
+  }
+  if (start < 0) return [];
+  const stripCite = s => s.replace(/\s*\[\d+\]\s*$/g, '').trim();
+  const todos = [];
+  let sawHeader = false;
+  for (let i = start; i < lines.length; i++) {
+    if (/^##\s/.test(lines[i])) break;
+    const t = lines[i].trim();
+    if (!t.startsWith('|')) continue;
+    const parts = t.split('|').map(c => c.trim());
+    while (parts.length && parts[0] === '') parts.shift();
+    while (parts.length && parts[parts.length - 1] === '') parts.pop();
+    if (!parts.length) continue;
+    if (parts.every(c => /^[-:]+$/.test(c))) continue;       // |---|---|---|
+    if (!sawHeader) { sawHeader = true; continue; }          // 第一筆是表頭
+    let owner = null, task = null, due = null;
+    if (parts.length >= 3) { owner = stripCite(parts[0]); task = stripCite(parts[1]); due = stripCite(parts[2]); }
+    else if (parts.length === 2) { task = stripCite(parts[0]); due = stripCite(parts[1]); }
+    else { task = stripCite(parts[0]); }
+    if (!task || /^[.…]+$/.test(task)) continue;             // | ... | ... | ... | 樣板列
+    todos.push(normalizeTodo({ task, owner: owner || null, due: due || null, priority: 'medium' }, 'summary'));
+  }
+  return todos;
+}
+
+async function generateTodosForMeeting(meeting) {
+  let todos = null;
+  let strategy = null;
+  let warning = null;
+
+  if (meeting.notebookId) {
+    try {
+      const qRes = await run(NLM_BIN, ['notebook', 'query', meeting.notebookId, TODOS_PROMPT]);
+      const answer = extractAnswer(qRes.stdout);
+      const parsed = parseTodosJson(answer);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        todos = parsed;
+        strategy = 'nlm';
+      } else if (Array.isArray(parsed) && parsed.length === 0) {
+        warning = 'NotebookLM 回傳空清單；已改從摘要的「行動項目」段落抽取。';
+      } else {
+        warning = 'NotebookLM 回傳的內容無法解析為 JSON；已改從摘要的「行動項目」段落抽取。';
+      }
+    } catch (e) {
+      warning = `NotebookLM 額度或服務異常（${String(e.message || e).slice(0, 200)}）；已改從摘要抽取。`;
+    }
+  } else {
+    warning = '此卷宗沒有 NotebookLM 筆記 ID，直接從摘要抽取。';
+  }
+
+  if (!todos) {
+    todos = parseTodosFromSummary(meeting.summary);
+    strategy = 'summary';
+  }
+
+  meeting.todos = todos;
+  meeting.todosStrategy = strategy;
+  meeting.todosWarning = warning || null;
+  meeting.todosGeneratedAt = new Date().toISOString();
+  save();
+  return { strategy, warning };
+}
+
 function friendlyError(raw) {
   if (/no.*language|language.*not.*detected|no.*content|偵測不到|沒有內容/i.test(raw)) {
     return 'NotebookLM 無法從音檔偵測到語言內容（可能太短、太雜訊、或未說話）。請重新錄音或上傳。\n\n原始訊息：\n' + raw;
@@ -718,6 +833,46 @@ const server = http.createServer((req, res) => {
       } else {
         sendJson(res, 200, { meeting: m, synced: false });
       }
+    });
+    return;
+  }
+
+  // 從卷宗萃取待辦事項。先試 NotebookLM（JSON 結構化），失敗再退回從 summary 抽
+  const todosMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/todos$/);
+  if (req.method === 'POST' && todosMatch) {
+    const id = Number(todosMatch[1]);
+    const m = state.meetings.find(x => x.id === id);
+    if (!m) return sendJson(res, 404, { error: 'not found' });
+    if (m.stage !== 'done') return sendJson(res, 400, { error: '只有已封印（done）的卷宗能列出待辦' });
+    if (!m.summary) return sendJson(res, 400, { error: '此卷宗沒有摘要可參考' });
+    (async () => {
+      try {
+        const { strategy, warning } = await generateTodosForMeeting(m);
+        sendJson(res, 200, { meeting: m, strategy, warning });
+      } catch (e) {
+        sendJson(res, 500, { error: String(e.message || e) });
+      }
+    })();
+    return;
+  }
+
+  // 切換單一 todo 的完成狀態
+  const todoItemMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/todos\/(\d+)$/);
+  if (req.method === 'PATCH' && todoItemMatch) {
+    const id = Number(todoItemMatch[1]);
+    const idx = Number(todoItemMatch[2]);
+    const m = state.meetings.find(x => x.id === id);
+    if (!m) return sendJson(res, 404, { error: 'not found' });
+    if (!Array.isArray(m.todos) || !m.todos[idx]) return sendJson(res, 404, { error: 'todo not found' });
+    const chunks = [];
+    req.on('data', c => chunks.push(c));
+    req.on('end', () => {
+      let body;
+      try { body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); }
+      catch { return sendJson(res, 400, { error: 'invalid json' }); }
+      if (typeof body.done === 'boolean') m.todos[idx].done = body.done;
+      save();
+      sendJson(res, 200, { meeting: m });
     });
     return;
   }
