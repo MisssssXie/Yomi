@@ -7,7 +7,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
-const { SUMMARY_PROMPT, CLASS_SUMMARY_PROMPT, TODOS_PROMPT } = require('./prompts.js');
+const { SUMMARY_PROMPT, CLASS_SUMMARY_PROMPT } = require('./prompts.js');
 
 // 依卷宗模式挑摘要 prompt。預設 meeting（向下相容舊資料）
 function summaryPromptFor(meeting) {
@@ -143,107 +143,6 @@ function checkCancelled(meeting) {
 }
 
 // NotebookLM prompts 集中在 ./prompts.js，改 prompt 看那邊
-
-// 把 nlm 回傳的文字裡的 JSON 陣列挖出來；可能被 ```json fence 包住或前後有多餘文字
-function parseTodosJson(answer) {
-  if (!answer) return null;
-  let s = String(answer).trim();
-  s = s.replace(/^```(?:json|JSON)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
-  const i = s.indexOf('[');
-  const j = s.lastIndexOf(']');
-  if (i < 0 || j <= i) return null;
-  let arr;
-  try { arr = JSON.parse(s.slice(i, j + 1)); } catch { return null; }
-  if (!Array.isArray(arr)) return null;
-  return arr
-    .filter(x => x && typeof x === 'object' && typeof x.task === 'string' && x.task.trim())
-    .map(x => normalizeTodo(x, 'nlm'));
-}
-
-function normalizeTodo(x, source) {
-  const valid = v => (typeof v === 'string' && v.trim()) ? v.trim() : null;
-  let priority = String(x.priority || '').toLowerCase();
-  if (!['high', 'medium', 'low'].includes(priority)) priority = 'medium';
-  return {
-    task: String(x.task).trim(),
-    owner: valid(x.owner),
-    due: valid(x.due),
-    blockers: valid(x.blockers),
-    priority,
-    done: false,
-    source,
-  };
-}
-
-// Fallback A：直接從 summary markdown 的「## 行動項目」表格抽待辦
-function parseTodosFromSummary(summary) {
-  if (!summary) return [];
-  const lines = String(summary).split(/\r?\n/);
-  let start = -1;
-  for (let i = 0; i < lines.length; i++) {
-    if (/^##\s*行動項目/.test(lines[i])) { start = i + 1; break; }
-  }
-  if (start < 0) return [];
-  const stripCite = s => s.replace(/\s*\[\d+\]\s*$/g, '').trim();
-  const todos = [];
-  let sawHeader = false;
-  for (let i = start; i < lines.length; i++) {
-    if (/^##\s/.test(lines[i])) break;
-    const t = lines[i].trim();
-    if (!t.startsWith('|')) continue;
-    const parts = t.split('|').map(c => c.trim());
-    while (parts.length && parts[0] === '') parts.shift();
-    while (parts.length && parts[parts.length - 1] === '') parts.pop();
-    if (!parts.length) continue;
-    if (parts.every(c => /^[-:]+$/.test(c))) continue;       // |---|---|---|
-    if (!sawHeader) { sawHeader = true; continue; }          // 第一筆是表頭
-    let owner = null, task = null, due = null;
-    if (parts.length >= 3) { owner = stripCite(parts[0]); task = stripCite(parts[1]); due = stripCite(parts[2]); }
-    else if (parts.length === 2) { task = stripCite(parts[0]); due = stripCite(parts[1]); }
-    else { task = stripCite(parts[0]); }
-    if (!task || /^[.…]+$/.test(task)) continue;             // | ... | ... | ... | 樣板列
-    todos.push(normalizeTodo({ task, owner: owner || null, due: due || null, priority: 'medium' }, 'summary'));
-  }
-  return todos;
-}
-
-async function generateTodosForMeeting(meeting) {
-  let todos = null;
-  let strategy = null;
-  let warning = null;
-
-  if (meeting.notebookId) {
-    try {
-      const qRes = await run(NLM_BIN, ['notebook', 'query', meeting.notebookId, TODOS_PROMPT]);
-      const answer = extractAnswer(qRes.stdout);
-      const parsed = parseTodosJson(answer);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        todos = parsed;
-        strategy = 'nlm';
-      } else if (Array.isArray(parsed) && parsed.length === 0) {
-        warning = 'NotebookLM 回傳空清單；已改從摘要的「行動項目」段落抽取。';
-      } else {
-        warning = 'NotebookLM 回傳的內容無法解析為 JSON；已改從摘要的「行動項目」段落抽取。';
-      }
-    } catch (e) {
-      warning = `NotebookLM 額度或服務異常（${String(e.message || e).slice(0, 200)}）；已改從摘要抽取。`;
-    }
-  } else {
-    warning = '此卷宗沒有 NotebookLM 筆記 ID，直接從摘要抽取。';
-  }
-
-  if (!todos) {
-    todos = parseTodosFromSummary(meeting.summary);
-    strategy = 'summary';
-  }
-
-  meeting.todos = todos;
-  meeting.todosStrategy = strategy;
-  meeting.todosWarning = warning || null;
-  meeting.todosGeneratedAt = new Date().toISOString();
-  save();
-  return { strategy, warning };
-}
 
 function friendlyError(raw) {
   if (/no.*language|language.*not.*detected|no.*content|偵測不到|沒有內容/i.test(raw)) {
@@ -814,47 +713,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 從卷宗萃取待辦事項。先試 NotebookLM（JSON 結構化），失敗再退回從 summary 抽
-  const todosMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/todos$/);
-  if (req.method === 'POST' && todosMatch) {
-    const id = Number(todosMatch[1]);
-    const m = state.meetings.find(x => x.id === id);
-    if (!m) return sendJson(res, 404, { error: 'not found' });
-    if (m.stage !== 'done') return sendJson(res, 400, { error: '只有已封印（done）的卷宗能列出待辦' });
-    if (m.mode === 'class') return sendJson(res, 400, { error: '課堂卷不產生待辦事項' });
-    if (!m.summary) return sendJson(res, 400, { error: '此卷宗沒有摘要可參考' });
-    (async () => {
-      try {
-        const { strategy, warning } = await generateTodosForMeeting(m);
-        sendJson(res, 200, { meeting: m, strategy, warning });
-      } catch (e) {
-        sendJson(res, 500, { error: String(e.message || e) });
-      }
-    })();
-    return;
-  }
-
-  // 切換單一 todo 的完成狀態
-  const todoItemMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/todos\/(\d+)$/);
-  if (req.method === 'PATCH' && todoItemMatch) {
-    const id = Number(todoItemMatch[1]);
-    const idx = Number(todoItemMatch[2]);
-    const m = state.meetings.find(x => x.id === id);
-    if (!m) return sendJson(res, 404, { error: 'not found' });
-    if (!Array.isArray(m.todos) || !m.todos[idx]) return sendJson(res, 404, { error: 'todo not found' });
-    const chunks = [];
-    req.on('data', c => chunks.push(c));
-    req.on('end', () => {
-      let body;
-      try { body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); }
-      catch { return sendJson(res, 400, { error: 'invalid json' }); }
-      if (typeof body.done === 'boolean') m.todos[idx].done = body.done;
-      save();
-      sendJson(res, 200, { meeting: m });
-    });
-    return;
-  }
-
   // 對既有 notebook 重新跑摘要（用於刪除 source 後手動觸發）
   // 接受 body { mode?: 'meeting' | 'class' }；若提供且與目前不同，會先切 mode 再重跑
   const resummarizeMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/resummarize$/);
@@ -877,11 +735,6 @@ const server = http.createServer((req, res) => {
       const nextMode = body.mode === 'class' ? 'class' : body.mode === 'meeting' ? 'meeting' : null;
       if (nextMode && nextMode !== (m.mode || 'meeting')) {
         m.mode = nextMode;
-        // 切換 mode 時把舊待辦清掉（不同 mode 的摘要結構不同，舊待辦會失準）
-        delete m.todos;
-        delete m.todosStrategy;
-        delete m.todosWarning;
-        delete m.todosGeneratedAt;
       }
       m.cancelled = false;
       m.error = undefined;

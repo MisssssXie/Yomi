@@ -1440,107 +1440,6 @@
       border-color: color-mix(in oklab, var(--moon) 30%, var(--rule));
     }
 
-    /* 待辦事項 */
-    .todos-section { margin-top: 18px; }
-    .todos-empty {
-      display: flex; flex-direction: column; gap: 12px;
-      padding: 14px 16px;
-      border: 1px dashed var(--rule);
-      border-radius: 12px;
-      background: color-mix(in oklab, var(--paper-3) 60%, transparent);
-    }
-    .todos-empty-hint { font-size: 13px; color: var(--ink-soft); line-height: 1.7; }
-    .todos-empty-sub { font-size: 12px; color: var(--ink-mute); }
-    .todos-empty .control-btn { align-self: flex-start; }
-    .todos-warning {
-      margin: 8px 0 10px;
-      padding: 8px 12px;
-      border-radius: 10px;
-      background: color-mix(in oklab, var(--moon) 8%, transparent);
-      border: 1px solid color-mix(in oklab, var(--moon) 25%, var(--rule));
-      color: var(--ink-soft);
-      font-size: 12.5px;
-      line-height: 1.6;
-    }
-    .todos-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
-    .todo-item {
-      display: flex; gap: 12px; align-items: flex-start;
-      padding: 12px 14px;
-      border: 1px solid var(--rule);
-      border-radius: 12px;
-      background: color-mix(in oklab, var(--paper-3) 70%, transparent);
-      cursor: pointer;
-      transition: border-color .15s ease, background .15s ease, opacity .2s ease;
-      position: relative;
-    }
-    .todo-item:hover { border-color: color-mix(in oklab, var(--moon) 45%, var(--rule)); }
-    .todo-item.done { opacity: 0.55; }
-    .todo-item.done .todo-task { text-decoration: line-through; color: var(--ink-mute); }
-    .todo-item::before {
-      content: "";
-      position: absolute;
-      left: 0; top: 12px; bottom: 12px;
-      width: 3px;
-      border-radius: 0 3px 3px 0;
-      background: color-mix(in oklab, var(--ink) 18%, transparent);
-    }
-    .todo-item.pri-high::before { background: var(--seal); }
-    .todo-item.pri-medium::before { background: color-mix(in oklab, var(--moon) 70%, transparent); }
-    .todo-item.pri-low::before { background: color-mix(in oklab, var(--jade) 60%, transparent); }
-    .todo-check {
-      flex-shrink: 0;
-      margin-top: 2px;
-      width: 16px; height: 16px;
-      accent-color: var(--moon);
-      cursor: pointer;
-    }
-    .todo-body { flex: 1; min-width: 0; }
-    .todo-task {
-      font-family: "Shippori Mincho", serif;
-      font-size: 14px;
-      line-height: 1.6;
-      color: var(--ink);
-      word-break: break-word;
-    }
-    .todo-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-    .todo-chip {
-      display: inline-flex; align-items: center;
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-size: 11px;
-      letter-spacing: 0.06em;
-      background: color-mix(in oklab, var(--ink) 6%, transparent);
-      color: var(--ink-soft);
-      border: 1px solid var(--rule);
-    }
-    .todo-chip.owner {
-      background: color-mix(in oklab, var(--jade) 12%, transparent);
-      color: color-mix(in oklab, var(--jade) 85%, var(--ink));
-      border-color: color-mix(in oklab, var(--jade) 30%, var(--rule));
-    }
-    .todo-chip.due {
-      background: color-mix(in oklab, var(--moon) 12%, transparent);
-      color: color-mix(in oklab, var(--moon) 75%, var(--ink));
-      border-color: color-mix(in oklab, var(--moon) 30%, var(--rule));
-    }
-    .todo-chip.blocker {
-      background: color-mix(in oklab, var(--seal) 10%, transparent);
-      color: color-mix(in oklab, var(--seal) 80%, var(--ink));
-      border-color: color-mix(in oklab, var(--seal) 30%, var(--rule));
-      max-width: 220px;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .todos-actions {
-      display: flex; flex-wrap: wrap; gap: 8px;
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px dashed var(--rule);
-      align-items: center;
-    }
-    .todos-actions .control-btn { font-size: 12.5px; padding: 6px 12px; }
-    .todos-actions-spacer { flex: 1; }
-    .todos-strategy { font-size: 12px; color: var(--ink-mute); }
-
     /* 文字稿 modal */
     .text-modal {
       position: fixed; inset: 0;
@@ -2136,7 +2035,6 @@ let state = {
   mascot: localStorage.getItem('yomi-mascot') || 'neko',  // 'neko' | 'tsuki'
   mode: localStorage.getItem('yomi-mode') || 'meeting',   // 'meeting' | 'class' — 影響下一次新建卷
   lastAnimatedMeeting: null,   // 摘要 enter 動畫只在切換到不同卷時播放，避免每次 toggle source 都重播
-  todosGenerating: false,      // 月讀凝視中：列出待辦的非同步狀態
   switchingMode: false,        // 摘要頁切換 mode 中
 };
 
@@ -2180,6 +2078,12 @@ function escapeHtml(s) {
 }
 function notebookLmUrl(id) {
   return `https://notebooklm.google.com/notebook/${encodeURIComponent(id)}`;
+}
+
+// 舊摘要把 `## 行動項目` 改名為 `## 待辦事項`（新版 SUMMARY_PROMPT 已直接吐後者）
+function renameLegacyHeaders(src) {
+  if (!src) return '';
+  return String(src).replace(/^(##\s*)行動項目/gm, '$1待辦事項');
 }
 
 function renderMarkdown(src) {
@@ -2803,7 +2707,7 @@ function tplSummary() {
 
       <div class="scroll-section">
         <h4>${m.mode === 'class' ? '課 · 講 · 錄' : '月 讀 之 言'}</h4>
-        <div class="body-text md">${m.summary ? renderMarkdown(m.summary) : '（尚未產生摘要）'}</div>
+        <div class="body-text md">${m.summary ? renderMarkdown(renameLegacyHeaders(m.summary)) : '（尚未產生摘要）'}</div>
       </div>
 
       <div class="scroll-section">
@@ -2860,7 +2764,6 @@ function tplSummary() {
         ` : ''}
       </div>
 
-      ${tplTodos(m)}
     </div>
 
     <div class="controls">
@@ -2871,86 +2774,6 @@ function tplSummary() {
         結新卷軸
       </button>
     </div>`;
-}
-
-// 待辦事項區塊。資料生成走「先試 NotebookLM 結構化，失敗退回從摘要抽」策略
-// 課堂卷不產生待辦清單
-function tplTodos(m) {
-  if (m.mode === 'class') return '';
-  const todos = Array.isArray(m.todos) ? m.todos : null;
-  const generating = !!state.todosGenerating;
-
-  // 尚未產生 → 顯示生成入口
-  if (!todos) {
-    return `
-      <div class="scroll-section todos-section">
-        <h4>待 辦 事 項</h4>
-        <div class="todos-empty">
-          <div class="todos-empty-hint">
-            月讀已替你封印此卷。要不要再請月讀替你把可執行的任務挑出來？
-            <br><span class="todos-empty-sub">先試 NotebookLM 結構化萃取；若額度不足或無法解析，會自動退回從摘要的「行動項目」段落抽取。</span>
-          </div>
-          <button class="control-btn primary" id="btn-todos-generate" ${generating ? 'disabled' : ''}>
-            ${generating ? '月讀凝視中…' : '請月讀列出待辦'}
-          </button>
-        </div>
-      </div>`;
-  }
-
-  // 有清單但空
-  if (!todos.length) {
-    return `
-      <div class="scroll-section todos-section">
-        <h4>待 辦 事 項</h4>
-        <div class="todos-warning">
-          ${escapeHtml(m.todosWarning || '此卷中沒有抓到明確的待辦事項。')}
-        </div>
-        <div class="todos-actions">
-          <button class="control-btn ghost" id="btn-todos-regenerate" ${generating ? 'disabled' : ''}>
-            ${generating ? '月讀凝視中…' : '重新嘗試'}
-          </button>
-        </div>
-      </div>`;
-  }
-
-  const doneCount = todos.filter(t => t.done).length;
-  const stratLabel = m.todosStrategy === 'nlm' ? '月讀萃取' : '摘要回退';
-
-  return `
-    <div class="scroll-section todos-section">
-      <h4>待 辦 事 項 · ${doneCount}/${todos.length}</h4>
-      ${m.todosWarning ? `<div class="todos-warning">${escapeHtml(m.todosWarning)}</div>` : ''}
-      <div class="todos-list">
-        ${todos.map((t, i) => `
-          <label class="todo-item ${t.done ? 'done' : ''} pri-${t.priority || 'medium'}">
-            <input type="checkbox" class="todo-check" data-idx="${i}" ${t.done ? 'checked' : ''} />
-            <div class="todo-body">
-              <div class="todo-task">${escapeHtml(t.task)}</div>
-              <div class="todo-meta">
-                ${t.owner ? `<span class="todo-chip owner">${escapeHtml(t.owner)}</span>` : ''}
-                ${t.due ? `<span class="todo-chip due">${escapeHtml(t.due)}</span>` : ''}
-                ${t.blockers ? `<span class="todo-chip blocker" title="${escapeHtml(t.blockers)}">阻：${escapeHtml(t.blockers)}</span>` : ''}
-                <span class="todo-chip pri">${priorityLabel(t.priority)}</span>
-              </div>
-            </div>
-          </label>
-        `).join('')}
-      </div>
-      <div class="todos-actions">
-        <span class="todos-strategy">來源：${stratLabel}${m.todosGeneratedAt ? ` · ${fmtDateTime(m.todosGeneratedAt)}` : ''}</span>
-        <span class="todos-actions-spacer"></span>
-        <button class="control-btn ghost" id="btn-todos-copy" title="複製為 Markdown 清單">複製為 Markdown</button>
-        <button class="control-btn ghost" id="btn-todos-regenerate" ${generating ? 'disabled' : ''}>
-          ${generating ? '月讀凝視中…' : '重新整理'}
-        </button>
-      </div>
-    </div>`;
-}
-
-function priorityLabel(p) {
-  if (p === 'high') return '高';
-  if (p === 'low') return '低';
-  return '中';
 }
 
 function tplError() {
@@ -3090,21 +2913,6 @@ function wireStage() {
 
   const btnSwitchMode = $('#btn-switch-mode');
   if (btnSwitchMode) btnSwitchMode.addEventListener('click', handleSwitchMode);
-
-  // 待辦事項
-  const btnTodosGen = $('#btn-todos-generate');
-  if (btnTodosGen) btnTodosGen.addEventListener('click', handleTodosGenerate);
-  const btnTodosRegen = $('#btn-todos-regenerate');
-  if (btnTodosRegen) btnTodosRegen.addEventListener('click', handleTodosGenerate);
-  const btnTodosCopy = $('#btn-todos-copy');
-  if (btnTodosCopy) btnTodosCopy.addEventListener('click', handleTodosCopy);
-  $$('.todo-check').forEach(cb => {
-    cb.addEventListener('click', e => e.stopPropagation()); // 別觸發 label 預設行為兩次
-    cb.addEventListener('change', e => {
-      const idx = Number(e.target.dataset.idx);
-      handleTodoToggle(idx, e.target.checked);
-    });
-  });
 
   // Source pickers (Idle + Append)
   wireSourcePicker('btn-source-create', 'create');
@@ -3620,10 +3428,7 @@ async function handleSwitchMode() {
   const current = m.mode === 'class' ? 'class' : 'meeting';
   const next = current === 'class' ? 'meeting' : 'class';
   const nextLabel = next === 'class' ? '課堂卷' : '會議卷';
-  const todosNote = current === 'meeting' && Array.isArray(m.todos) && m.todos.length
-    ? '\n\n注意：切到課堂卷後此卷既有的待辦清單會被清除。'
-    : '';
-  if (!confirm(`要把此卷切換成「${nextLabel}」並重新整理摘要嗎？${todosNote}`)) return;
+  if (!confirm(`要把此卷切換成「${nextLabel}」並重新整理摘要嗎？`)) return;
   state.switchingMode = true;
   renderStage();
   try {
@@ -3637,88 +3442,6 @@ async function handleSwitchMode() {
     alert('切換模式失敗：' + e.message);
   } finally {
     state.switchingMode = false;
-  }
-}
-
-async function handleTodosGenerate() {
-  const m = state.currentMeeting;
-  if (!m || !state.currentMeetingId) return;
-  if (state.todosGenerating) return;
-  state.todosGenerating = true;
-  renderStage();
-  try {
-    const r = await api(`/api/meetings/${state.currentMeetingId}/todos`, { method: 'POST' });
-    state.currentMeeting = r.meeting;
-    if (r.warning && r.strategy === 'summary') {
-      // 退回到 summary 抽取時提示一下，但不擋使用者
-      console.warn('[todos]', r.warning);
-    }
-  } catch (e) {
-    alert('列出待辦失敗：' + e.message);
-  } finally {
-    state.todosGenerating = false;
-    renderStage();
-  }
-}
-
-async function handleTodoToggle(idx, done) {
-  const m = state.currentMeeting;
-  if (!m || !state.currentMeetingId) return;
-  if (!Array.isArray(m.todos) || !m.todos[idx]) return;
-  // 樂觀更新，不重 render，避免 checkbox 跳動
-  const prev = m.todos[idx].done;
-  m.todos[idx].done = done;
-  // 只更新標題的計數
-  const sec = document.querySelector('.todos-section h4');
-  if (sec) {
-    const doneCount = m.todos.filter(t => t.done).length;
-    sec.textContent = `待 辦 事 項 · ${doneCount}/${m.todos.length}`;
-  }
-  // 同步切換樣式
-  const item = document.querySelector(`.todo-check[data-idx="${idx}"]`)?.closest('.todo-item');
-  if (item) item.classList.toggle('done', done);
-  try {
-    const r = await api(`/api/meetings/${state.currentMeetingId}/todos/${idx}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ done })
-    });
-    state.currentMeeting = r.meeting;
-  } catch (e) {
-    // 失敗回滾
-    m.todos[idx].done = prev;
-    if (item) item.classList.toggle('done', prev);
-    const cb = document.querySelector(`.todo-check[data-idx="${idx}"]`);
-    if (cb) cb.checked = prev;
-    alert('更新待辦狀態失敗：' + e.message);
-  }
-}
-
-async function handleTodosCopy() {
-  const m = state.currentMeeting;
-  const todos = Array.isArray(m?.todos) ? m.todos : [];
-  if (!todos.length) return;
-  const md = todos.map(t => {
-    const bits = [];
-    bits.push(`- [${t.done ? 'x' : ' '}] ${t.task}`);
-    const meta = [];
-    if (t.owner) meta.push(`@${t.owner}`);
-    if (t.due) meta.push(`due:${t.due}`);
-    if (t.priority && t.priority !== 'medium') meta.push(`pri:${t.priority}`);
-    if (t.blockers) meta.push(`阻：${t.blockers}`);
-    if (meta.length) bits.push(`  · ${meta.join(' · ')}`);
-    return bits.join('\n');
-  }).join('\n');
-  try {
-    await navigator.clipboard.writeText(md);
-    const btn = $('#btn-todos-copy');
-    if (btn) {
-      const o = btn.textContent;
-      btn.textContent = '已複製 ✓';
-      setTimeout(() => { btn.textContent = o; }, 1400);
-    }
-  } catch (e) {
-    alert('複製失敗：' + e.message);
   }
 }
 
