@@ -890,6 +890,79 @@
       background: currentColor;
     }
 
+    /* idle 卷宗模式切換（會議卷 / 課堂卷） */
+    .mode-toggle {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      margin-top: 4px;
+      margin-bottom: 8px;
+      border: 1px solid var(--rule);
+      border-radius: 999px;
+      background: color-mix(in oklab, var(--paper-3) 60%, transparent);
+    }
+    .mode-opt {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px;
+      border: none;
+      background: transparent;
+      color: var(--ink-mute);
+      font-family: "Shippori Mincho", serif;
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background .15s ease, color .15s ease;
+    }
+    .mode-opt:hover { color: var(--ink-soft); }
+    .mode-opt.active {
+      background: color-mix(in oklab, var(--moon) 20%, var(--paper));
+      color: var(--ink);
+    }
+    .mode-glyph {
+      width: 18px; height: 18px;
+      display: inline-grid; place-items: center;
+      border-radius: 4px;
+      border: 1px solid color-mix(in oklab, currentColor 35%, var(--rule));
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .mode-opt.active .mode-glyph {
+      background: color-mix(in oklab, var(--moon) 35%, transparent);
+      border-color: color-mix(in oklab, var(--moon) 60%, var(--rule));
+    }
+
+    /* 摘要頁右上模式切換 chip */
+    .mode-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 9px 3px 4px;
+      border: 1px solid var(--rule);
+      background: color-mix(in oklab, var(--paper-3) 60%, transparent);
+      color: var(--ink-soft);
+      border-radius: 999px;
+      font-family: "Shippori Mincho", serif;
+      font-size: 11.5px;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: color .12s ease, border-color .12s ease, background .12s ease;
+    }
+    .mode-chip:hover {
+      color: var(--ink);
+      border-color: color-mix(in oklab, var(--moon) 50%, var(--rule));
+      background: color-mix(in oklab, var(--moon) 8%, var(--paper-3));
+    }
+    .mode-chip:disabled { opacity: 0.55; cursor: wait; }
+    .mode-chip-glyph {
+      width: 18px; height: 18px;
+      display: inline-grid; place-items: center;
+      border-radius: 4px;
+      border: 1px solid color-mix(in oklab, var(--moon) 40%, var(--rule));
+      background: color-mix(in oklab, var(--moon) 18%, transparent);
+      color: var(--ink);
+      font-size: 11px;
+      font-weight: 600;
+    }
+
     /* file drop hint */
     .dropzone {
       width: min(560px, 100%);
@@ -2061,8 +2134,10 @@ let state = {
   sourceModal: null,           // { kind, mode } | null 通用來源 modal
   theme: localStorage.getItem('yomi-theme') || 'day',
   mascot: localStorage.getItem('yomi-mascot') || 'neko',  // 'neko' | 'tsuki'
+  mode: localStorage.getItem('yomi-mode') || 'meeting',   // 'meeting' | 'class' — 影響下一次新建卷
   lastAnimatedMeeting: null,   // 摘要 enter 動畫只在切換到不同卷時播放，避免每次 toggle source 都重播
   todosGenerating: false,      // 月讀凝視中：列出待辦的非同步狀態
+  switchingMode: false,        // 摘要頁切換 mode 中
 };
 
 let timerInterval = null;
@@ -2502,6 +2577,17 @@ function tplIdle() {
       或 <a id="helper-upload">上傳既有音檔</a>，交予月讀閱讀。
     </div>
 
+    <div class="mode-toggle" role="radiogroup" aria-label="卷宗模式">
+      <button class="mode-opt ${state.mode === 'meeting' ? 'active' : ''}" data-mode="meeting" role="radio" aria-checked="${state.mode === 'meeting'}">
+        <span class="mode-glyph">會</span>
+        <span class="mode-label">會議卷</span>
+      </button>
+      <button class="mode-opt ${state.mode === 'class' ? 'active' : ''}" data-mode="class" role="radio" aria-checked="${state.mode === 'class'}">
+        <span class="mode-glyph">講</span>
+        <span class="mode-label">課堂卷</span>
+      </button>
+    </div>
+
     <div class="dropzone" id="dropzone">
       將音檔拖入此處
       <span class="formats">
@@ -2668,6 +2754,10 @@ function tplSummary() {
       <span class="mote m3" aria-hidden="true"></span>
       <div class="scroll-actions">
         ${m.notebookId ? `
+          <button class="mode-chip" id="btn-switch-mode" title="切換卷宗模式並重新整理摘要" ${state.switchingMode ? 'disabled' : ''}>
+            <span class="mode-chip-glyph">${m.mode === 'class' ? '講' : '會'}</span>
+            <span class="mode-chip-label">${m.mode === 'class' ? '課堂卷' : '會議卷'}</span>
+          </button>
           <a class="icon-ghost" href="${notebookLmUrl(m.notebookId)}" target="_blank" rel="noopener" title="在 NotebookLM 開啟" style="text-decoration:none">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M6 3 H3 V13 H13 V10 M9 3 H13 V7 M13 3 L8 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
@@ -2712,7 +2802,7 @@ function tplSummary() {
       </div>
 
       <div class="scroll-section">
-        <h4>月 讀 之 言</h4>
+        <h4>${m.mode === 'class' ? '課 · 講 · 錄' : '月 讀 之 言'}</h4>
         <div class="body-text md">${m.summary ? renderMarkdown(m.summary) : '（尚未產生摘要）'}</div>
       </div>
 
@@ -2784,7 +2874,9 @@ function tplSummary() {
 }
 
 // 待辦事項區塊。資料生成走「先試 NotebookLM 結構化，失敗退回從摘要抽」策略
+// 課堂卷不產生待辦清單
 function tplTodos(m) {
+  if (m.mode === 'class') return '';
   const todos = Array.isArray(m.todos) ? m.todos : null;
   const generating = !!state.todosGenerating;
 
@@ -2955,6 +3047,15 @@ function wireStage() {
       if (f) handleUpload(f);
     });
   }
+  $$('.mode-opt').forEach(b => {
+    b.addEventListener('click', () => {
+      const next = b.dataset.mode === 'class' ? 'class' : 'meeting';
+      if (next === state.mode) return;
+      state.mode = next;
+      localStorage.setItem('yomi-mode', next);
+      renderStage();
+    });
+  });
 
   // Recording
   const btnStop = $('#btn-stop');
@@ -2986,6 +3087,9 @@ function wireStage() {
   });
   const btnResummarize = $('#btn-resummarize');
   if (btnResummarize) btnResummarize.addEventListener('click', handleResummarize);
+
+  const btnSwitchMode = $('#btn-switch-mode');
+  if (btnSwitchMode) btnSwitchMode.addEventListener('click', handleSwitchMode);
 
   // 待辦事項
   const btnTodosGen = $('#btn-todos-generate');
@@ -3176,11 +3280,9 @@ async function handleStop() {
   try {
     const buf = await blob.arrayBuffer();
     const endpoint = appendingTo ? `/api/meetings/${appendingTo}/sources` : '/api/meetings';
-    const data = await api(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/octet-stream', 'X-Audio-Ext': recordedExt },
-      body: buf
-    });
+    const headers = { 'Content-Type': 'application/octet-stream', 'X-Audio-Ext': recordedExt };
+    if (!appendingTo) headers['X-Meeting-Mode'] = state.mode;
+    const data = await api(endpoint, { method: 'POST', headers, body: buf });
     await openMeeting(data.meeting);
     await refreshList();
   } catch (e) {
@@ -3195,11 +3297,9 @@ async function handleUpload(file, appendingTo = null) {
   const buf = await file.arrayBuffer();
   try {
     const endpoint = appendingTo ? `/api/meetings/${appendingTo}/sources` : '/api/meetings';
-    const data = await api(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/octet-stream', 'X-Audio-Ext': ext },
-      body: buf
-    });
+    const headers = { 'Content-Type': 'application/octet-stream', 'X-Audio-Ext': ext };
+    if (!appendingTo) headers['X-Meeting-Mode'] = state.mode;
+    const data = await api(endpoint, { method: 'POST', headers, body: buf });
     await openMeeting(data.meeting);
     await refreshList();
   } catch (e) {
@@ -3354,6 +3454,7 @@ async function handleSourceSubmit() {
   const endpoint = mode === 'append' && state.currentMeetingId
     ? `/api/meetings/${state.currentMeetingId}/sources`
     : '/api/meetings';
+  if (mode !== 'append') headers['X-Meeting-Mode'] = state.mode;
   closeSourceModal();
   try {
     const data = await api(endpoint, { method: 'POST', headers, body: value });
@@ -3509,6 +3610,33 @@ async function handleResummarize() {
     // 後續 stage 變化由 SSE 推回，render 會自然切到 processing
   } catch (e) {
     alert('重新摘要失敗：' + e.message);
+  }
+}
+
+async function handleSwitchMode() {
+  const m = state.currentMeeting;
+  if (!m || !state.currentMeetingId) return;
+  if (state.switchingMode) return;
+  const current = m.mode === 'class' ? 'class' : 'meeting';
+  const next = current === 'class' ? 'meeting' : 'class';
+  const nextLabel = next === 'class' ? '課堂卷' : '會議卷';
+  const todosNote = current === 'meeting' && Array.isArray(m.todos) && m.todos.length
+    ? '\n\n注意：切到課堂卷後此卷既有的待辦清單會被清除。'
+    : '';
+  if (!confirm(`要把此卷切換成「${nextLabel}」並重新整理摘要嗎？${todosNote}`)) return;
+  state.switchingMode = true;
+  renderStage();
+  try {
+    await api(`/api/meetings/${state.currentMeetingId}/resummarize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: next })
+    });
+    // 後續 stage 變化由 SSE 推回，render 會自然切到 processing
+  } catch (e) {
+    alert('切換模式失敗：' + e.message);
+  } finally {
+    state.switchingMode = false;
   }
 }
 

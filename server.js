@@ -7,7 +7,12 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
-const { SUMMARY_PROMPT, TODOS_PROMPT } = require('./prompts.js');
+const { SUMMARY_PROMPT, CLASS_SUMMARY_PROMPT, TODOS_PROMPT } = require('./prompts.js');
+
+// 依卷宗模式挑摘要 prompt。預設 meeting（向下相容舊資料）
+function summaryPromptFor(meeting) {
+  return meeting && meeting.mode === 'class' ? CLASS_SUMMARY_PROMPT : SUMMARY_PROMPT;
+}
 
 const PORT = Number(process.env.PORT || 3748);
 const ROOT = __dirname;
@@ -365,7 +370,7 @@ async function processMeeting(meeting) {
 
     checkCancelled(meeting);
     pushStage(meeting, 'summarizing', '產生摘要與可詢問議題…');
-    const qRes = await runForMeeting(meeting.id, NLM_BIN, ['notebook', 'query', notebookId, SU1MMARY_PROMPT]);
+    const qRes = await runForMeeting(meeting.id, NLM_BIN, ['notebook', 'query', notebookId, summaryPromptFor(meeting)]);
     meeting.summary = validateSummary(qRes.stdout);
     meeting.completedAt = new Date().toISOString();
     pushStage(meeting, 'done', '完成');
@@ -401,7 +406,7 @@ async function appendSourceToMeeting(meeting, sourceIndex) {
 
     checkCancelled(meeting);
     pushStage(meeting, 'summarizing', '重新整合所有來源產生摘要…');
-    const qRes = await runForMeeting(meeting.id, NLM_BIN, ['notebook', 'query', meeting.notebookId, SUMMARY_PROMPT]);
+    const qRes = await runForMeeting(meeting.id, NLM_BIN, ['notebook', 'query', meeting.notebookId, summaryPromptFor(meeting)]);
     meeting.summary = validateSummary(qRes.stdout);
     meeting.completedAt = new Date().toISOString();
     delete meeting.appendError;
@@ -450,7 +455,7 @@ async function resummarizeMeeting(meeting) {
     if (!meeting.notebookId) throw new Error('此卷宗尚未建立 NotebookLM 筆記，無法重新摘要');
     checkCancelled(meeting);
     pushStage(meeting, 'summarizing', '重新摘要中…');
-    const qRes = await runForMeeting(meeting.id, NLM_BIN, ['notebook', 'query', meeting.notebookId, SUMMARY_PROMPT]);
+    const qRes = await runForMeeting(meeting.id, NLM_BIN, ['notebook', 'query', meeting.notebookId, summaryPromptFor(meeting)]);
     meeting.summary = validateSummary(qRes.stdout);
     meeting.completedAt = new Date().toISOString();
     delete meeting.appendError;
@@ -485,7 +490,7 @@ function defaultTitle(kind, payload) {
 }
 
 // 從各種 source 類型建立會議
-function createMeetingFor(id, kind, payload) {
+function createMeetingFor(id, kind, payload, mode) {
   const now = new Date();
   const addedAt = now.toISOString();
   let source;
@@ -502,7 +507,8 @@ function createMeetingFor(id, kind, payload) {
   }
   const meeting = {
     id, title: defaultTitle(kind, payload),
-    sources: [source], stage: 'queued', createdAt: addedAt
+    sources: [source], stage: 'queued', createdAt: addedAt,
+    mode: mode === 'class' ? 'class' : 'meeting',
   };
   state.meetings.unshift(meeting);
   save();
@@ -562,6 +568,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && url.pathname === '/api/meetings') {
     return sendJson(res, 200, state.meetings.map(m => ({
       id: m.id, title: m.title, stage: m.stage, stageMsg: m.stageMsg,
+      mode: m.mode || 'meeting',
       createdAt: m.createdAt, completedAt: m.completedAt, error: m.error
     })));
   }
@@ -711,7 +718,8 @@ const server = http.createServer((req, res) => {
       const id = state.nextId++;
       const parsed = parseSourcePayload(buf, req.headers, id, null);
       if (parsed.error) return sendJson(res, 400, { error: parsed.error });
-      const meeting = createMeetingFor(id, parsed.kind, parsed.payload);
+      const mode = String(req.headers['x-meeting-mode'] || '').toLowerCase();
+      const meeting = createMeetingFor(id, parsed.kind, parsed.payload, mode);
       sendJson(res, 200, { id, meeting });
       processMeeting(meeting);
     });
@@ -813,6 +821,7 @@ const server = http.createServer((req, res) => {
     const m = state.meetings.find(x => x.id === id);
     if (!m) return sendJson(res, 404, { error: 'not found' });
     if (m.stage !== 'done') return sendJson(res, 400, { error: '只有已封印（done）的卷宗能列出待辦' });
+    if (m.mode === 'class') return sendJson(res, 400, { error: '課堂卷不產生待辦事項' });
     if (!m.summary) return sendJson(res, 400, { error: '此卷宗沒有摘要可參考' });
     (async () => {
       try {
@@ -847,6 +856,7 @@ const server = http.createServer((req, res) => {
   }
 
   // 對既有 notebook 重新跑摘要（用於刪除 source 後手動觸發）
+  // 接受 body { mode?: 'meeting' | 'class' }；若提供且與目前不同，會先切 mode 再重跑
   const resummarizeMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/resummarize$/);
   if (req.method === 'POST' && resummarizeMatch) {
     const id = Number(resummarizeMatch[1]);
@@ -855,10 +865,30 @@ const server = http.createServer((req, res) => {
     if (m.stage !== 'done') return sendJson(res, 400, { error: '只有已封印（done）的卷宗能重新摘要' });
     if (!m.notebookId) return sendJson(res, 400, { error: '此卷宗沒有對應的 NotebookLM 筆記，無法重新摘要' });
     if (!m.sources?.length) return sendJson(res, 400, { error: '此卷宗目前沒有任何來源，無法產生摘要' });
-    m.cancelled = false;
-    m.error = undefined;
-    sendJson(res, 200, { meeting: m });
-    resummarizeMeeting(m);
+    const chunks = [];
+    req.on('data', c => chunks.push(c));
+    req.on('end', () => {
+      let body = {};
+      const raw = Buffer.concat(chunks).toString('utf8');
+      if (raw) {
+        try { body = JSON.parse(raw); }
+        catch { return sendJson(res, 400, { error: 'invalid json' }); }
+      }
+      const nextMode = body.mode === 'class' ? 'class' : body.mode === 'meeting' ? 'meeting' : null;
+      if (nextMode && nextMode !== (m.mode || 'meeting')) {
+        m.mode = nextMode;
+        // 切換 mode 時把舊待辦清掉（不同 mode 的摘要結構不同，舊待辦會失準）
+        delete m.todos;
+        delete m.todosStrategy;
+        delete m.todosWarning;
+        delete m.todosGeneratedAt;
+      }
+      m.cancelled = false;
+      m.error = undefined;
+      save();
+      sendJson(res, 200, { meeting: m });
+      resummarizeMeeting(m);
+    });
     return;
   }
 
