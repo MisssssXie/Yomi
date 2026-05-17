@@ -7,6 +7,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
+const { SUMMARY_PROMPT, TODOS_PROMPT } = require('./prompts.js');
 
 const PORT = Number(process.env.PORT || 3748);
 const ROOT = __dirname;
@@ -136,39 +137,7 @@ function checkCancelled(meeting) {
   if (meeting.cancelled) throw new Error('__CANCELLED__');
 }
 
-const SUMMARY_PROMPT = `你是專業會議助理。請完整參考此卷宗內**所有**會議錄音 source（可能是同一場會議中場休息後的多段），輸出以下 markdown 區塊，**只能輸出這些區塊，不要前後加任何說明**：
-
-## 三句話摘要
-- （第一句）
-- （第二句）
-- （第三句）
-
-## 行動項目
-| 負責人 | 任務 | 時程 |
-| --- | --- | --- |
-| ... | ... | ... |
-
-## 決議事項
-- ...
-
-## 可反問的關鍵問題
-1. ...
-2. ...
-3. ...`;
-
-const TODOS_PROMPT = `你是專業會議助理。請從此卷宗所有來源中萃取「待辦事項清單」。
-
-**規則（請嚴格遵守）**：
-- 只能輸出一個合法的 JSON 陣列，不要任何說明、註解、markdown code fence、citation（如 [1]）。
-- 陣列每筆物件需有這些欄位：
-  - "task": string，具體可執行的任務描述（必要、不可為空）。
-  - "owner": string 或 null，負責人姓名；會議中沒指明則為 null。
-  - "due": string 或 null，期限／時程，保留原文（例如「週三」「2026-06-01」「下次會議前」）；若無則 null。
-  - "blockers": string 或 null，前置條件或阻塞；若無則 null。
-  - "priority": "high" / "medium" / "low"，依會議上下文判斷急迫度；不確定填 "medium"。
-- 範例：
-  [{"task":"完成支付功能","owner":"顧編工程師","due":"週三","blockers":null,"priority":"high"}]
-- 如果會議中完全沒有可萃取的待辦事項，輸出空陣列 []。`;
+// NotebookLM prompts 集中在 ./prompts.js，改 prompt 看那邊
 
 // 把 nlm 回傳的文字裡的 JSON 陣列挖出來；可能被 ```json fence 包住或前後有多餘文字
 function parseTodosJson(answer) {
@@ -395,8 +364,8 @@ async function processMeeting(meeting) {
     await ingestSource(meeting, meeting.sources[0]);
 
     checkCancelled(meeting);
-    pushStage(meeting, 'summarizing', '產生摘要與反問問題…');
-    const qRes = await runForMeeting(meeting.id, NLM_BIN, ['notebook', 'query', notebookId, SUMMARY_PROMPT]);
+    pushStage(meeting, 'summarizing', '產生摘要與可詢問議題…');
+    const qRes = await runForMeeting(meeting.id, NLM_BIN, ['notebook', 'query', notebookId, SU1MMARY_PROMPT]);
     meeting.summary = validateSummary(qRes.stdout);
     meeting.completedAt = new Date().toISOString();
     pushStage(meeting, 'done', '完成');
