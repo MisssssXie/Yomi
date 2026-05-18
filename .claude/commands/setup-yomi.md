@@ -41,22 +41,25 @@ sw_vers -productVersion
 
 `nlm` 是 NotebookLM 的非官方 CLI，Yomi 整個處理流都靠它。PyPI 套件名是 `notebooklm-mcp-cli`，安裝後會提供 `nlm` 指令。
 
-優先用 `uv`（最快、最乾淨）：
+先偵測使用者有哪些工具可用：
 
 ```bash
-# 沒有 uv 的話
-command -v uv >/dev/null || brew install uv
-
-# 裝 nlm
-uv tool install notebooklm-mcp-cli
+command -v pipx && pipx --version || echo "pipx ✗"
+command -v pip3 && pip3 --version || echo "pip3 ✗"
+command -v uv && uv --version || echo "uv ✗"
 ```
 
-如果使用者沒有 brew 也不想裝 uv，退而用 pipx：
+根據偵測結果，**列出所有可用選項的優缺點，讓使用者自己選**：
 
-```bash
-brew install pipx 2>/dev/null || python3 -m pip install --user pipx
-pipx install notebooklm-mcp-cli
-```
+| 選項 | 指令 | 優點 | 缺點 |
+|------|------|------|------|
+| **pipx** | `pipx install notebooklm-mcp-cli` | 隔離環境，不汙染系統 Python，管理方便 | 需要有 pipx |
+| **pip3 --user** | `pip3 install --user notebooklm-mcp-cli` | 最簡單，不用裝額外工具，現在就能跑 | 直接裝進使用者 Python，日後不好管理 |
+| **uv** | `uv tool install notebooklm-mcp-cli` | 最快、最乾淨的隔離環境 | 需要有 uv |
+
+如果都沒有，只列 pip3 選項，並提一句：「如果你之後常裝 Python 工具，可以考慮 `brew install pipx` 讓管理更乾淨，但現在先用 pip3 裝就好。」
+
+等使用者選完，跑對應的指令。
 
 裝完驗證：
 
@@ -64,7 +67,7 @@ pipx install notebooklm-mcp-cli
 nlm --version
 ```
 
-跑不出來 → 提示把 `~/.local/bin` 加進 PATH。
+跑不出來 → 提示把 `~/.local/bin` 加進 PATH（執行 `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc`）。
 
 ---
 
