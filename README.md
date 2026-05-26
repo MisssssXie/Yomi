@@ -95,6 +95,8 @@ npm start
 | `npm run stop` | 殺掉佔用 port 的程序 |
 | `npm run restart` | 重啟 |
 
+懶得開終端機的話，也可以直接在 Finder 雙擊專案根目錄的 [`start-yomi`](./start-yomi) 檔案啟動服務（內容就是 `npm run restart`，第一次用要先 `chmod +x start-yomi`）。
+
 ## 你的資料在哪
 
 - `recordings/` — 錄音原檔（已 gitignore，永遠不會被推上 GitHub）
