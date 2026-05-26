@@ -1,17 +1,41 @@
 // =============================================================================
-//  Yomi（讀）— 伺服器
+//  Yomi（月讀）— 伺服器
 //  純 Node.js HTTP、無外部依賴。Pipeline：上傳音檔 → nlm 上傳 NotebookLM
 //  → 取逐字稿 → query 產生摘要與反問問題 → SSE 推進度回前端
+//
+//  資料模型：1 meeting（卷宗）= 1 NotebookLM notebook，底下有 records[]（場次）。
+//  每個 record 各自有 sources[] + summary + stage 等。新場次共用同一個 notebook，
+//  但摘要 prompt 會限制只看自己的 source。
 // =============================================================================
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
-const { SUMMARY_PROMPT, CLASS_SUMMARY_PROMPT } = require('./prompts.js');
+const { SUMMARY_PROMPT, SYNC_SUMMARY_PROMPT, CLASS_SUMMARY_PROMPT, TITLE_PROMPT } = require('./prompts.js');
 
 // 依卷宗模式挑摘要 prompt。預設 meeting（向下相容舊資料）
+function normalizeMeetingMode(mode) {
+  const m = String(mode || '').toLowerCase();
+  return ['meeting', 'sync', 'class'].includes(m) ? m : 'meeting';
+}
+
 function summaryPromptFor(meeting) {
-  return meeting && meeting.mode === 'class' ? CLASS_SUMMARY_PROMPT : SUMMARY_PROMPT;
+  switch (normalizeMeetingMode(meeting && meeting.mode)) {
+    case 'class': return CLASS_SUMMARY_PROMPT;
+    case 'sync': return SYNC_SUMMARY_PROMPT;
+    default: return SUMMARY_PROMPT;
+  }
+}
+
+// 把 record 內 sources 的標題列出來，前綴給 NotebookLM 限定範圍
+function scopedPromptFor(meeting, record) {
+  const titles = (record.sources || [])
+    .map(s => s.title)
+    .filter(t => typeof t === 'string' && t.trim());
+  const base = summaryPromptFor(meeting);
+  if (titles.length === 0) return base;
+  const list = titles.map(t => `「${t}」`).join('、');
+  return `本卷宗可能有多筆來源（source），請只根據以下指定的來源來回答，其餘來源請完全忽略：\n${list}\n\n---\n\n${base}`;
 }
 
 const PORT = Number(process.env.PORT || 3748);
@@ -23,57 +47,78 @@ const NLM_BIN = process.env.NLM_BIN || 'nlm';
 const state = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
 const save = () => fs.writeFileSync(DATA_FILE, JSON.stringify(state, null, 2));
 
-// 啟動恢復 + 結構升級：把舊欄位（audioFile / sourceId / transcript）搬進 sources[]
 const TERMINAL_STAGES = new Set(['done', 'error', 'cancelled']);
+
+// ---------- 啟動恢復 + 結構升級 ----------
+// 1) 把舊 meeting（sources/summary/stage 等都在 meeting 上）遷移成 records[0]
+// 2) 把中斷的 record 標成 error（伺服器重啟導致工作中斷）
+// 3) 補上 records[].id（舊格式 source 也補 title 預設值，後面 scopedPromptFor 才有東西列）
 let recovered = 0;
 let mutated = false;
 for (const m of state.meetings) {
-  if (!TERMINAL_STAGES.has(m.stage)) {
-    m.stage = 'error';
-    m.stageMsg = '伺服器重啟導致工作中斷，請刪除後重新上傳';
-    m.error = m.stageMsg;
-    recovered++;
+  if (!Array.isArray(m.records)) {
+    const r0 = {
+      id: 0,
+      title: m.title || '會議記錄 1',
+      createdAt: m.createdAt,
+      stage: m.stage || 'done',
+      stageMsg: m.stageMsg,
+      completedAt: m.completedAt,
+      error: m.error,
+      appendError: m.appendError,
+      sources: Array.isArray(m.sources) ? m.sources : [],
+      summary: m.summary,
+    };
+    m.records = [r0];
+    delete m.sources;
+    delete m.summary;
+    delete m.stage;
+    delete m.stageMsg;
+    delete m.completedAt;
+    delete m.error;
+    delete m.appendError;
+    delete m.cancelled;
     mutated = true;
   }
-  if (!Array.isArray(m.sources) || m.sources.length === 0) {
-    if (m.audioFile) {
-      m.sources = [{
-        audioFile: m.audioFile,
-        audioSize: m.audioSize,
-        sourceId: m.sourceId,
-        transcript: m.transcript,
-        addedAt: m.createdAt
-      }];
-    } else {
-      m.sources = [];
+  for (const r of m.records) {
+    if (!TERMINAL_STAGES.has(r.stage)) {
+      r.stage = 'error';
+      r.stageMsg = '伺服器重啟導致工作中斷，請刪除後重新上傳';
+      r.error = r.stageMsg;
+      recovered++;
+      mutated = true;
     }
-    mutated = true;
-  }
-  if ('audioFile' in m || 'audioSize' in m || 'sourceId' in m || 'transcript' in m) {
-    delete m.audioFile; delete m.audioSize; delete m.sourceId; delete m.transcript;
-    mutated = true;
+    // 補預設 source title，scopedPromptFor 才列得出來
+    for (let i = 0; i < (r.sources || []).length; i++) {
+      const s = r.sources[i];
+      if (!s.title) {
+        s.title = defaultSourceTitle(s, r, i);
+        mutated = true;
+      }
+    }
   }
 }
 if (mutated) save();
-if (recovered) console.log(`已恢復 ${recovered} 筆中斷的會議為 error`);
+if (recovered) console.log(`已恢復 ${recovered} 筆中斷的場次為 error`);
 
-// 追蹤每個 meeting 當下 spawn 出去的 child process（取消用）
+// 追蹤每個 record 當下 spawn 出去的 child process（取消用）。key = `${meetingId}:${recordId}`
 const activeProcs = {};
-// 追蹤哪些 meeting 正在續錄中（失敗時要回滾到 done 而非標 error）
-const appendingMeetings = new Set();
+// 追蹤哪些 record 正在續錄／重新摘要中（失敗時要回滾到 done 而非標 error）
+const busyRecords = new Set();
+function procKey(meetingId, recordId) { return `${meetingId}:${recordId}`; }
 
 // ---------- SSE ----------
 const sseClients = {};
-function broadcast(id, event, data) {
-  const list = sseClients[id] || [];
+function broadcast(meetingId, event, data) {
+  const list = sseClients[meetingId] || [];
   const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   for (const res of list) { try { res.write(payload); } catch {} }
 }
-function pushStage(meeting, stage, msg) {
-  meeting.stage = stage;
-  meeting.stageMsg = msg;
+function pushStage(meeting, record, stage, msg) {
+  record.stage = stage;
+  record.stageMsg = msg;
   save();
-  broadcast(meeting.id, 'stage', { stage, msg });
+  broadcast(meeting.id, 'stage', { recordId: record.id, stage, msg });
 }
 
 // ---------- nlm wrappers ----------
@@ -94,20 +139,16 @@ function run(cmd, args, { input, onProc } = {}) {
   });
 }
 
-// 跑 nlm 指令並把 child 註冊到 activeProcs，方便外部取消
-function runForMeeting(meetingId, cmd, args, opts = {}) {
+function runForRecord(meetingId, recordId, cmd, args, opts = {}) {
+  const key = procKey(meetingId, recordId);
   return run(cmd, args, {
     ...opts,
-    onProc: p => { activeProcs[meetingId] = p; }
+    onProc: p => { activeProcs[key] = p; }
   }).finally(() => {
-    if (activeProcs[meetingId] && !activeProcs[meetingId].killed) {
-      // child 正常結束，不清空（保留給其他指令覆蓋）
-    }
-    delete activeProcs[meetingId];
+    delete activeProcs[key];
   });
 }
 
-// 從 nlm 的 JSON 輸出取出指定欄位（會嘗試頂層 / value / 陣列第一筆）
 function extractField(stdout, fields) {
   const s = stdout.trim();
   try {
@@ -125,7 +166,6 @@ function extractField(stdout, fields) {
 const extractAnswer = s => extractField(s, ['answer']);
 const extractContent = s => extractField(s, ['content', 'transcript', 'text']);
 
-// 解析 nlm 輸出。優先 JSON，否則用 regex 抓 ID。
 function parseId(stdout) {
   const s = stdout.trim();
   try {
@@ -138,11 +178,9 @@ function parseId(stdout) {
 }
 
 // ---------- Pipeline ----------
-function checkCancelled(meeting) {
-  if (meeting.cancelled) throw new Error('__CANCELLED__');
+function checkCancelled(record) {
+  if (record.cancelled) throw new Error('__CANCELLED__');
 }
-
-// NotebookLM prompts 集中在 ./prompts.js，改 prompt 看那邊
 
 function friendlyError(raw) {
   if (/no.*language|language.*not.*detected|no.*content|偵測不到|沒有內容/i.test(raw)) {
@@ -154,7 +192,6 @@ function friendlyError(raw) {
   return raw;
 }
 
-// 各種 source 類型對應的 stage 訊息
 const KIND_UPLOAD_MSG = {
   audio:   '上傳音檔到 NotebookLM（請耐心等候，1 小時錄音約需 5 分鐘）…',
   file:    '上傳檔案到 NotebookLM…',
@@ -171,16 +208,28 @@ const KIND_TRANSCRIBE_MSG = {
   drive:   '取得 Drive 文件內容…',
 };
 
-// 把一段 source（audio/file/text/url/youtube/drive）加進既有 notebook、取內容、回填。
-async function ingestSource(meeting, src, opts = {}) {
+// 預設 source 標題（給 scopedPromptFor 用、也給 nlm 端顯示）
+function defaultSourceTitle(src, record, sourceIndex) {
+  const kind = src.kind || 'audio';
+  const base = record.title || '場次';
+  const tag = (kind === 'text') ? '文字稿'
+            : (kind === 'url') ? '網頁'
+            : (kind === 'youtube') ? 'YouTube'
+            : (kind === 'drive') ? 'Drive'
+            : '錄音';
+  return `${base}・${tag} ${sourceIndex + 1}`;
+}
+
+// 把一段 source 加進既有 notebook、取內容、回填。
+async function ingestSource(meeting, record, src, opts = {}) {
   const kind = src.kind || 'audio';
   const isText = kind === 'text';
   const uploadStage = opts.uploadStage || 'uploading';
   const uploadMsg = opts.uploadMsg || KIND_UPLOAD_MSG[kind] || KIND_UPLOAD_MSG.audio;
   const transcribeMsg = opts.transcribeMsg || KIND_TRANSCRIBE_MSG[kind] || KIND_TRANSCRIBE_MSG.audio;
 
-  checkCancelled(meeting);
-  pushStage(meeting, uploadStage, uploadMsg);
+  checkCancelled(record);
+  pushStage(meeting, record, uploadStage, uploadMsg);
 
   let addArgs;
   if (kind === 'text') {
@@ -193,19 +242,17 @@ async function ingestSource(meeting, src, opts = {}) {
     addArgs = ['source', 'add', meeting.notebookId, '--drive', src.driveId || ''];
     if (src.driveType) addArgs.push('--type', src.driveType);
   } else {
-    // audio / file
     const audioPath = path.join(RECORDINGS_DIR, src.audioFile);
     addArgs = ['source', 'add', meeting.notebookId, '--file', audioPath];
   }
-  if (src.title) addArgs.push('--title', src.title);
+  addArgs.push('--title', src.title);
   addArgs.push('--wait', '--wait-timeout', '1800');
 
-  const addRes = await runForMeeting(meeting.id, NLM_BIN, addArgs);
+  const addRes = await runForRecord(meeting.id, record.id, NLM_BIN, addArgs);
   src.sourceId = parseId(addRes.stdout);
   if (isText) src.transcript = src.text;
   save();
 
-  // 上傳指令回了 0 但拿不到 source ID — 視為上傳失敗，不要默默繼續
   if (!src.sourceId) {
     const raw = (addRes.stdout || addRes.stderr || '').trim();
     throw new Error(
@@ -215,11 +262,11 @@ async function ingestSource(meeting, src, opts = {}) {
   }
 
   if (!isText) {
-    checkCancelled(meeting);
-    pushStage(meeting, 'transcribing', transcribeMsg);
+    checkCancelled(record);
+    pushStage(meeting, record, 'transcribing', transcribeMsg);
     let transcribeError = null;
     try {
-      const tRes = await runForMeeting(meeting.id, NLM_BIN, ['source', 'get', src.sourceId]);
+      const tRes = await runForRecord(meeting.id, record.id, NLM_BIN, ['source', 'get', src.sourceId]);
       src.transcript = extractContent(tRes.stdout);
     } catch (e) {
       transcribeError = e;
@@ -227,9 +274,6 @@ async function ingestSource(meeting, src, opts = {}) {
     }
     save();
 
-    // 音檔／檔案類來源是「我們交給 NotebookLM 的東西」，如果連內容都讀不回來，
-    // 後續摘要也不會有意義；直接視為錯誤。網頁 / YouTube / Drive 由 NotebookLM 自行
-    // 抓內容，取不到逐字稿不一定代表失敗，仍給機會繼續走摘要。
     const trimmed = (src.transcript || '').trim();
     const empty = !trimmed || /^\(無法取得內容/.test(trimmed);
     if ((kind === 'audio' || kind === 'file') && empty) {
@@ -242,9 +286,8 @@ async function ingestSource(meeting, src, opts = {}) {
   }
 }
 
-// 驗證 NotebookLM 摘要回傳是否有意義；空字串 / 過短 / 純錯誤訊息都當失敗
 function validateSummary(stdout) {
-  const summary = extractAnswer(stdout);
+  const summary = stripNotebookCitations(extractAnswer(stdout));
   const trimmed = (summary || '').trim();
   if (!trimmed || trimmed.length < 20) {
     throw new Error(
@@ -255,128 +298,199 @@ function validateSummary(stdout) {
   return summary;
 }
 
-async function processMeeting(meeting) {
+function stripNotebookCitations(text) {
+  return String(text || '')
+    .replace(/\s*\[(?:\d+\s*(?:,\s*\d+\s*)*)\]/g, '')
+    .replace(/[ \t]+$/gm, '')
+    .trim();
+}
+
+// NLM 回的標題常會夾雜引號、前綴、結尾標點，洗乾淨再覆寫
+function sanitizeTitle(raw) {
+  if (!raw) return '';
+  let s = String(raw).trim();
+  s = s.split(/\r?\n/)[0].trim();
+  s = s.replace(/^(?:標題|題目|筆記本名稱|Title)\s*[：:\-—]\s*/i, '');
+  s = s.replace(/^[\s"'「『《\[【〈]+/, '').replace(/[\s"'」』》\]】〉]+$/, '');
+  s = s.replace(/[。．！？\?]+$/, '');
+  s = s.replace(/\s+/g, ' ').trim();
+  if (s.length > 60) s = s.slice(0, 60).trim();
+  return s;
+}
+
+// 由 NLM 依卷宗內容回一個標題，覆寫 meeting.title 並同步重命名 NLM notebook。
+// 完全 best-effort：任何錯誤都不影響主流程，留下原本的時間戳標題即可。
+async function autoTitleMeeting(meeting, record) {
+  if (!meeting.notebookId) return;
   try {
-    checkCancelled(meeting);
-    pushStage(meeting, 'creating', '建立 NotebookLM 筆記中…');
-    const createRes = await runForMeeting(meeting.id, NLM_BIN, ['notebook', 'create', meeting.title]);
+    const tRes = await runForRecord(
+      meeting.id, record.id, NLM_BIN,
+      ['notebook', 'query', meeting.notebookId, TITLE_PROMPT]
+    );
+    const title = sanitizeTitle(extractAnswer(tRes.stdout));
+    if (!title) return;
+    meeting.title = title;
+    save();
+    try {
+      await run(NLM_BIN, ['notebook', 'rename', meeting.notebookId, title]);
+    } catch (e) {
+      console.warn('[autoTitle] NLM 同步重命名失敗（本地已更新）:', String(e.message || e).slice(0, 200));
+    }
+  } catch (e) {
+    console.warn('[autoTitle] 取得自動標題失敗:', String(e.message || e).slice(0, 200));
+  }
+}
+
+// 第一場 record：要先建 notebook 再 ingest source 再產摘要
+async function processFirstRecord(meeting) {
+  const record = meeting.records[0];
+  try {
+    checkCancelled(record);
+    pushStage(meeting, record, 'creating', '建立 NotebookLM 筆記中…');
+    const createRes = await runForRecord(meeting.id, record.id, NLM_BIN, ['notebook', 'create', meeting.title]);
     const notebookId = parseId(createRes.stdout);
     if (!notebookId) throw new Error('無法解析 notebook id: ' + createRes.stdout);
     meeting.notebookId = notebookId;
     save();
 
-    await ingestSource(meeting, meeting.sources[0]);
+    await ingestSource(meeting, record, record.sources[0]);
 
-    checkCancelled(meeting);
-    pushStage(meeting, 'summarizing', '產生摘要與可詢問議題…');
-    const qRes = await runForMeeting(meeting.id, NLM_BIN, ['notebook', 'query', notebookId, summaryPromptFor(meeting)]);
-    meeting.summary = validateSummary(qRes.stdout);
-    meeting.completedAt = new Date().toISOString();
-    pushStage(meeting, 'done', '完成');
-    broadcast(meeting.id, 'done', { meeting });
+    checkCancelled(record);
+    pushStage(meeting, record, 'summarizing', '產生摘要與可詢問議題…');
+    const qRes = await runForRecord(meeting.id, record.id, NLM_BIN, ['notebook', 'query', notebookId, scopedPromptFor(meeting, record)]);
+    record.summary = validateSummary(qRes.stdout);
+    record.completedAt = new Date().toISOString();
+
+    // 摘要產完後，由 NLM 依內容自動命名卷宗（覆寫掉預設的時間戳標題）
+    pushStage(meeting, record, 'summarizing', '由月讀為此卷命名…');
+    await autoTitleMeeting(meeting, record);
+
+    pushStage(meeting, record, 'done', '完成');
+    broadcast(meeting.id, 'done', { recordId: record.id, meeting });
   } catch (e) {
     const raw = String(e.message || e);
-    if (raw.includes('__CANCELLED__') || meeting.cancelled) {
-      pushStage(meeting, 'cancelled', '已取消');
-      broadcast(meeting.id, 'cancelled', { msg: '已取消' });
+    if (raw.includes('__CANCELLED__') || record.cancelled) {
+      pushStage(meeting, record, 'cancelled', '已取消');
+      broadcast(meeting.id, 'cancelled', { recordId: record.id, msg: '已取消' });
       return;
     }
     const friendly = friendlyError(raw);
-    meeting.error = friendly;
-    pushStage(meeting, 'error', friendly);
-    broadcast(meeting.id, 'error', { msg: friendly });
+    record.error = friendly;
+    pushStage(meeting, record, 'error', friendly);
+    broadcast(meeting.id, 'error', { recordId: record.id, msg: friendly });
   }
 }
 
-// 把新一段音源加入既有卷宗，並重新生成摘要（會把所有 source 一起納入）
-// 失敗時回滾到原本的 done 狀態，把錯誤訊息掛在 meeting.appendError，不會把整個卷宗弄壞
-async function appendSourceToMeeting(meeting, sourceIndex) {
-  const src = meeting.sources[sourceIndex];
-  const previousSummary = meeting.summary;
-  const previousCompletedAt = meeting.completedAt;
-  appendingMeetings.add(meeting.id);
+// 在既有卷宗（notebook 已建）開新一場 record：ingest 第一份 source、產這場的摘要
+async function processNewRecord(meeting, record) {
+  try {
+    if (!meeting.notebookId) throw new Error('此卷宗尚未建立 NotebookLM 筆記，無法新增場次');
+    await ingestSource(meeting, record, record.sources[0]);
+
+    checkCancelled(record);
+    pushStage(meeting, record, 'summarizing', '產生本場摘要…');
+    const qRes = await runForRecord(meeting.id, record.id, NLM_BIN, ['notebook', 'query', meeting.notebookId, scopedPromptFor(meeting, record)]);
+    record.summary = validateSummary(qRes.stdout);
+    record.completedAt = new Date().toISOString();
+    pushStage(meeting, record, 'done', '完成');
+    broadcast(meeting.id, 'done', { recordId: record.id, meeting });
+  } catch (e) {
+    const raw = String(e.message || e);
+    if (raw.includes('__CANCELLED__') || record.cancelled) {
+      pushStage(meeting, record, 'cancelled', '已取消');
+      broadcast(meeting.id, 'cancelled', { recordId: record.id, msg: '已取消' });
+      return;
+    }
+    const friendly = friendlyError(raw);
+    record.error = friendly;
+    pushStage(meeting, record, 'error', friendly);
+    broadcast(meeting.id, 'error', { recordId: record.id, msg: friendly });
+  }
+}
+
+// 把新一段 source 加入指定 record，並重生這場摘要。失敗時回滾到原 done 狀態
+async function appendSourceToRecord(meeting, record, sourceIndex) {
+  const src = record.sources[sourceIndex];
+  const previousSummary = record.summary;
+  const previousCompletedAt = record.completedAt;
+  busyRecords.add(procKey(meeting.id, record.id));
   try {
     if (!meeting.notebookId) throw new Error('此卷宗尚未建立 NotebookLM 筆記，無法續錄');
-    await ingestSource(meeting, src, {
+    await ingestSource(meeting, record, src, {
       uploadStage: 'appending',
-      uploadMsg: `續錄第 ${sourceIndex + 1} 段來源到既有卷宗…`,
+      uploadMsg: `續錄第 ${sourceIndex + 1} 段來源到本場…`,
       transcribeMsg: `取得第 ${sourceIndex + 1} 段內容…`,
     });
 
-    checkCancelled(meeting);
-    pushStage(meeting, 'summarizing', '重新整合所有來源產生摘要…');
-    const qRes = await runForMeeting(meeting.id, NLM_BIN, ['notebook', 'query', meeting.notebookId, summaryPromptFor(meeting)]);
-    meeting.summary = validateSummary(qRes.stdout);
-    meeting.completedAt = new Date().toISOString();
-    delete meeting.appendError;
-    pushStage(meeting, 'done', '完成');
-    broadcast(meeting.id, 'done', { meeting });
+    checkCancelled(record);
+    pushStage(meeting, record, 'summarizing', '重新整合本場所有來源產生摘要…');
+    const qRes = await runForRecord(meeting.id, record.id, NLM_BIN, ['notebook', 'query', meeting.notebookId, scopedPromptFor(meeting, record)]);
+    record.summary = validateSummary(qRes.stdout);
+    record.completedAt = new Date().toISOString();
+    delete record.appendError;
+    pushStage(meeting, record, 'done', '完成');
+    broadcast(meeting.id, 'done', { recordId: record.id, meeting });
   } catch (e) {
     const raw = String(e.message || e);
-    const wasCancel = raw.includes('__CANCELLED__') || meeting.cancelled;
+    const wasCancel = raw.includes('__CANCELLED__') || record.cancelled;
     const friendly = wasCancel ? '已取消續錄' : friendlyError(raw);
 
-    // 判斷失敗階段：source 是否成功進到 NotebookLM（拿到 sourceId 代表 ingest 至少前半段過了）
     const ingested = !!src.sourceId;
-    const failedAtSummary = ingested && meeting.stage === 'summarizing';
+    const failedAtSummary = ingested && record.stage === 'summarizing';
 
     if (failedAtSummary) {
-      // 新來源已上傳成功，只是摘要重生失敗。保留來源、保留舊摘要，下次續錄會再嘗試。
-      meeting.appendError = `第 ${sourceIndex + 1} 段已加入，但摘要重整失敗：${friendly}`;
+      record.appendError = `第 ${sourceIndex + 1} 段已加入，但摘要重整失敗：${friendly}`;
     } else {
-      // 上傳或轉錄階段失敗，新來源沒完整進到 NotebookLM。把這個 source 從本地移除。
-      const removed = meeting.sources.splice(sourceIndex, 1)[0];
+      const removed = record.sources.splice(sourceIndex, 1)[0];
       if (removed && removed.audioFile) {
         try { fs.unlinkSync(path.join(RECORDINGS_DIR, removed.audioFile)); } catch {}
       }
-      meeting.appendError = wasCancel
+      record.appendError = wasCancel
         ? '已取消續錄；新增的來源未保留。'
         : `續錄失敗（已回到上次成功的狀態）：${friendly}`;
     }
-    // 還原 done 狀態，把舊摘要保留住
-    meeting.summary = previousSummary;
-    meeting.completedAt = previousCompletedAt;
-    meeting.cancelled = false;
-    pushStage(meeting, 'done', '完成');
-    broadcast(meeting.id, 'append-error', { msg: meeting.appendError, meeting });
+    record.summary = previousSummary;
+    record.completedAt = previousCompletedAt;
+    record.cancelled = false;
+    pushStage(meeting, record, 'done', '完成');
+    broadcast(meeting.id, 'append-error', { recordId: record.id, msg: record.appendError, meeting });
   } finally {
-    appendingMeetings.delete(meeting.id);
+    busyRecords.delete(procKey(meeting.id, record.id));
   }
 }
 
-// 用既有 notebook 重跑摘要（用於刪除／改名 source 之後，或使用者手動觸發）
-// 失敗時保留舊摘要，把錯誤訊息掛在 meeting.appendError
-async function resummarizeMeeting(meeting) {
-  const previousSummary = meeting.summary;
-  const previousCompletedAt = meeting.completedAt;
-  appendingMeetings.add(meeting.id);
+// 用既有 notebook 重跑某 record 的摘要
+async function resummarizeRecord(meeting, record) {
+  const previousSummary = record.summary;
+  const previousCompletedAt = record.completedAt;
+  busyRecords.add(procKey(meeting.id, record.id));
   try {
     if (!meeting.notebookId) throw new Error('此卷宗尚未建立 NotebookLM 筆記，無法重新摘要');
-    checkCancelled(meeting);
-    pushStage(meeting, 'summarizing', '重新摘要中…');
-    const qRes = await runForMeeting(meeting.id, NLM_BIN, ['notebook', 'query', meeting.notebookId, summaryPromptFor(meeting)]);
-    meeting.summary = validateSummary(qRes.stdout);
-    meeting.completedAt = new Date().toISOString();
-    delete meeting.appendError;
-    pushStage(meeting, 'done', '完成');
-    broadcast(meeting.id, 'done', { meeting });
+    checkCancelled(record);
+    pushStage(meeting, record, 'summarizing', '重新摘要中…');
+    const qRes = await runForRecord(meeting.id, record.id, NLM_BIN, ['notebook', 'query', meeting.notebookId, scopedPromptFor(meeting, record)]);
+    record.summary = validateSummary(qRes.stdout);
+    record.completedAt = new Date().toISOString();
+    delete record.appendError;
+    pushStage(meeting, record, 'done', '完成');
+    broadcast(meeting.id, 'done', { recordId: record.id, meeting });
   } catch (e) {
     const raw = String(e.message || e);
-    const wasCancel = raw.includes('__CANCELLED__') || meeting.cancelled;
+    const wasCancel = raw.includes('__CANCELLED__') || record.cancelled;
     const friendly = wasCancel ? '已取消重新摘要' : friendlyError(raw);
-    meeting.summary = previousSummary;
-    meeting.completedAt = previousCompletedAt;
-    meeting.cancelled = false;
-    meeting.appendError = wasCancel ? '已取消重新摘要；保留先前摘要。' : `重新摘要失敗：${friendly}`;
-    pushStage(meeting, 'done', '完成');
-    broadcast(meeting.id, 'append-error', { msg: meeting.appendError, meeting });
+    record.summary = previousSummary;
+    record.completedAt = previousCompletedAt;
+    record.cancelled = false;
+    record.appendError = wasCancel ? '已取消重新摘要；保留先前摘要。' : `重新摘要失敗：${friendly}`;
+    pushStage(meeting, record, 'done', '完成');
+    broadcast(meeting.id, 'append-error', { recordId: record.id, msg: record.appendError, meeting });
   } finally {
-    appendingMeetings.delete(meeting.id);
+    busyRecords.delete(procKey(meeting.id, record.id));
   }
 }
 
-// 預設標題
-function defaultTitle(kind, payload) {
+// ---------- 建立 helpers ----------
+function defaultMeetingTitle(kind, payload) {
   const now = new Date();
   const ts = now.toLocaleString('zh-TW', { hour12: false }).replace(/\//g, '-');
   if (kind === 'text') return `紀錄 ${ts}`;
@@ -388,34 +502,7 @@ function defaultTitle(kind, payload) {
   return `會議 ${ts}`;
 }
 
-// 從各種 source 類型建立會議
-function createMeetingFor(id, kind, payload, mode) {
-  const now = new Date();
-  const addedAt = now.toISOString();
-  let source;
-  if (kind === 'text') {
-    source = { kind: 'text', text: payload.text, transcript: payload.text, audioSize: Buffer.byteLength(payload.text, 'utf8'), addedAt };
-  } else if (kind === 'url') {
-    source = { kind: 'url', url: payload.url, addedAt };
-  } else if (kind === 'youtube') {
-    source = { kind: 'youtube', url: payload.url, addedAt };
-  } else if (kind === 'drive') {
-    source = { kind: 'drive', driveId: payload.driveId, driveType: payload.driveType || 'doc', addedAt };
-  } else {
-    source = { audioFile: payload.audioFile, audioSize: payload.audioSize, addedAt };
-  }
-  const meeting = {
-    id, title: defaultTitle(kind, payload),
-    sources: [source], stage: 'queued', createdAt: addedAt,
-    mode: mode === 'class' ? 'class' : 'meeting',
-  };
-  state.meetings.unshift(meeting);
-  save();
-  return meeting;
-}
-
-// 為 /:id/sources 端點建立 source entry
-function buildSourceForAppend(kind, payload) {
+function buildSourceEntry(kind, payload) {
   const addedAt = new Date().toISOString();
   if (kind === 'text') {
     return { kind: 'text', text: payload.text, transcript: payload.text, audioSize: Buffer.byteLength(payload.text, 'utf8'), addedAt };
@@ -423,13 +510,115 @@ function buildSourceForAppend(kind, payload) {
   if (kind === 'url') return { kind: 'url', url: payload.url, addedAt };
   if (kind === 'youtube') return { kind: 'youtube', url: payload.url, addedAt };
   if (kind === 'drive') return { kind: 'drive', driveId: payload.driveId, driveType: payload.driveType || 'doc', addedAt };
-  return { audioFile: payload.audioFile, audioSize: payload.audioSize, addedAt };
+  return { kind: 'audio', audioFile: payload.audioFile, audioSize: payload.audioSize, addedAt };
+}
+
+// 為新 meeting 建立第一場 record + 第一個 source
+function createMeetingFor(id, kind, payload, mode) {
+  const now = new Date();
+  const addedAt = now.toISOString();
+  const source = buildSourceEntry(kind, payload);
+  const record = {
+    id: 0,
+    title: '會議記錄 1',
+    createdAt: addedAt,
+    stage: 'queued',
+    sources: [source],
+  };
+  source.title = defaultSourceTitle(source, record, 0);
+  const meeting = {
+    id,
+    title: defaultMeetingTitle(kind, payload),
+    mode: normalizeMeetingMode(mode),
+    createdAt: addedAt,
+    records: [record],
+  };
+  state.meetings.unshift(meeting);
+  save();
+  return meeting;
+}
+
+// 在既有 meeting 加新一場 record + 第一個 source
+function createRecordFor(meeting, kind, payload) {
+  const addedAt = new Date().toISOString();
+  const maxId = meeting.records.reduce((acc, r) => Math.max(acc, r.id), -1);
+  const recordId = maxId + 1;
+  const title = `會議記錄 ${meeting.records.length + 1}`;
+  const source = buildSourceEntry(kind, payload);
+  const record = {
+    id: recordId,
+    title,
+    createdAt: addedAt,
+    stage: 'queued',
+    sources: [source],
+  };
+  source.title = defaultSourceTitle(source, record, 0);
+  meeting.records.push(record);
+  save();
+  return record;
 }
 
 // ---------- HTTP ----------
 function sendJson(res, code, obj) {
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(obj));
+}
+
+// 解析 source body 為對應的 payload；失敗則回 {error}
+function parseSourcePayload(buf, headers, meetingId, recordId, sourceIndex) {
+  const kind = (headers['x-source-type'] || 'audio').toLowerCase();
+  if (kind === 'text') {
+    const text = buf.toString('utf8').trim();
+    if (!text) return { error: '文字內容不能為空' };
+    if (text.length > 800000) return { error: '文字稿過長（上限約 80 萬字元），請分段上傳' };
+    return { kind: 'text', payload: { text } };
+  }
+  if (kind === 'url' || kind === 'youtube') {
+    const u = buf.toString('utf8').trim();
+    if (!u) return { error: '網址不能為空' };
+    if (!/^https?:\/\//i.test(u)) return { error: '請提供有效的 http(s) 網址' };
+    return { kind, payload: { url: u } };
+  }
+  if (kind === 'drive') {
+    const driveId = buf.toString('utf8').trim();
+    if (!driveId) return { error: 'Drive 文件 ID 不能為空' };
+    const driveType = (headers['x-drive-type'] || 'doc').toLowerCase().replace(/[^a-z]/g, '') || 'doc';
+    return { kind: 'drive', payload: { driveId, driveType } };
+  }
+  // audio / file。檔名帶 meeting + record + source index 避免衝突
+  const ext = String(headers['x-audio-ext'] || 'm4a').replace(/[^a-z0-9]/gi, '') || 'm4a';
+  const tag = recordId == null ? 'init' : `r${recordId}`;
+  const audioFile = sourceIndex == null
+    ? `${meetingId}-${tag}.${ext}`
+    : `${meetingId}-${tag}-${sourceIndex}.${ext}`;
+  fs.writeFileSync(path.join(RECORDINGS_DIR, audioFile), buf);
+  return { kind: 'audio', payload: { audioFile, audioSize: buf.length } };
+}
+
+function readBody(req, maxBytes, cb) {
+  const chunks = [];
+  let total = 0;
+  req.on('data', c => {
+    total += c.length;
+    if (total > maxBytes) { req.destroy(); return; }
+    chunks.push(c);
+  });
+  req.on('end', () => cb(Buffer.concat(chunks)));
+}
+
+// meeting 整體狀態：取最後一場 record 的 stage 當代表（用來在 sidebar 顯示）
+function meetingAggregateStage(m) {
+  const rs = m.records || [];
+  if (rs.length === 0) return { stage: 'error', stageMsg: '無場次' };
+  const last = rs[rs.length - 1];
+  return { stage: last.stage, stageMsg: last.stageMsg };
+}
+
+function findMeeting(id) {
+  return state.meetings.find(x => x.id === id);
+}
+function findRecord(m, rid) {
+  return m && m.records ? m.records.find(r => r.id === rid) : null;
 }
 
 const server = http.createServer((req, res) => {
@@ -452,7 +641,6 @@ const server = http.createServer((req, res) => {
 
   if (req.method === 'POST' && url.pathname === '/api/restart') {
     sendJson(res, 200, { ok: true });
-    // 留一點時間給 response 送出，然後 detached spawn 重啟腳本，自己退出讓 npm run restart 接手
     setTimeout(() => {
       const child = spawn('bash', ['-lc', 'sleep 0.5 && cd "' + ROOT + '" && npm run restart'], {
         detached: true,
@@ -465,65 +653,41 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/meetings') {
-    return sendJson(res, 200, state.meetings.map(m => ({
-      id: m.id, title: m.title, stage: m.stage, stageMsg: m.stageMsg,
-      mode: m.mode || 'meeting',
-      createdAt: m.createdAt, completedAt: m.completedAt, error: m.error
-    })));
+    return sendJson(res, 200, state.meetings.map(m => {
+      const agg = meetingAggregateStage(m);
+      const recs = m.records || [];
+      return {
+        id: m.id, title: m.title,
+        mode: m.mode || 'meeting',
+        createdAt: m.createdAt,
+        stage: agg.stage, stageMsg: agg.stageMsg,
+        recordCount: recs.length,
+        records: recs.map((r, i) => ({
+          id: r.id,
+          title: r.title || `第 ${i + 1} 場`,
+          stage: r.stage,
+        })),
+      };
+    }));
   }
 
   const idMatch = url.pathname.match(/^\/api\/meetings\/(\d+)$/);
   if (req.method === 'GET' && idMatch) {
-    const m = state.meetings.find(x => x.id === Number(idMatch[1]));
+    const m = findMeeting(Number(idMatch[1]));
     if (!m) return sendJson(res, 404, { error: 'not found' });
     return sendJson(res, 200, m);
   }
 
-  const clearErrMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/clear-append-error$/);
-  if (req.method === 'POST' && clearErrMatch) {
-    const id = Number(clearErrMatch[1]);
-    const m = state.meetings.find(x => x.id === id);
-    if (!m) return sendJson(res, 404, { error: 'not found' });
-    delete m.appendError;
-    save();
-    return sendJson(res, 200, { ok: true, meeting: m });
-  }
-
-  const cancelMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/cancel$/);
-  if (req.method === 'POST' && cancelMatch) {
-    const id = Number(cancelMatch[1]);
-    const m = state.meetings.find(x => x.id === id);
-    if (!m) return sendJson(res, 404, { error: 'not found' });
-    if (TERMINAL_STAGES.has(m.stage)) {
-      return sendJson(res, 200, { ok: true, alreadyDone: true });
-    }
-    m.cancelled = true;
-    const proc = activeProcs[id];
-    if (proc && !proc.killed) {
-      try { proc.kill('SIGTERM'); } catch {}
-      setTimeout(() => { try { if (!proc.killed) proc.kill('SIGKILL'); } catch {} }, 2000);
-    }
-    // 續錄中的取消由 pipeline 的 catch 處理（會回滾到 done）
-    if (!appendingMeetings.has(id)) {
-      pushStage(m, 'cancelled', '已取消');
-      broadcast(id, 'cancelled', { msg: '已取消' });
-    }
-    return sendJson(res, 200, { ok: true });
-  }
-
   if (req.method === 'PATCH' && idMatch) {
     const id = Number(idMatch[1]);
-    const m = state.meetings.find(x => x.id === id);
+    const m = findMeeting(id);
     if (!m) return sendJson(res, 404, { error: 'not found' });
-    const chunks = [];
-    req.on('data', c => chunks.push(c));
-    req.on('end', async () => {
+    readBody(req, 64 * 1024, async (buf) => {
       let body;
-      try { body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); }
+      try { body = JSON.parse(buf.toString('utf8') || '{}'); }
       catch { return sendJson(res, 400, { error: 'invalid json' }); }
       const title = String(body.title || '').trim();
       if (!title) return sendJson(res, 400, { error: '標題不可為空' });
-      const prev = m.title;
       m.title = title;
       save();
       if (m.notebookId) {
@@ -531,8 +695,15 @@ const server = http.createServer((req, res) => {
           await run(NLM_BIN, ['notebook', 'rename', m.notebookId, title]);
           sendJson(res, 200, { meeting: m, synced: true });
         } catch (e) {
-          // 本地已存，NotebookLM 那邊失敗就回 warning，不 rollback
-          sendJson(res, 200, { meeting: m, synced: false, warning: String(e.message || e) });
+          const msg = String(e.message || e);
+          if (/NOT_FOUND/i.test(msg)) {
+            // NotebookLM 上找不到對應筆記本（被手動刪掉或帳號換過），把 stale id 清掉
+            m.notebookId = null;
+            save();
+            sendJson(res, 200, { meeting: m, synced: false, notebookMissing: true });
+          } else {
+            sendJson(res, 200, { meeting: m, synced: false, warning: msg });
+          }
         }
       } else {
         sendJson(res, 200, { meeting: m, synced: false });
@@ -547,24 +718,25 @@ const server = http.createServer((req, res) => {
     if (idx === -1) return sendJson(res, 404, { error: 'not found' });
     const m = state.meetings[idx];
 
-    // 若還在跑就先取消，停掉子程序
-    if (!TERMINAL_STAGES.has(m.stage)) {
-      m.cancelled = true;
-      const proc = activeProcs[id];
-      if (proc && !proc.killed) {
-        try { proc.kill('SIGTERM'); } catch {}
+    // 取消所有還在跑的 record
+    for (const r of m.records || []) {
+      if (!TERMINAL_STAGES.has(r.stage)) {
+        r.cancelled = true;
+        const proc = activeProcs[procKey(id, r.id)];
+        if (proc && !proc.killed) { try { proc.kill('SIGTERM'); } catch {} }
       }
     }
 
     state.meetings.splice(idx, 1);
     save();
-    for (const src of m.sources || []) {
-      if (src.audioFile) {
-        try { fs.unlinkSync(path.join(RECORDINGS_DIR, src.audioFile)); } catch {}
+    for (const r of m.records || []) {
+      for (const src of r.sources || []) {
+        if (src.audioFile) {
+          try { fs.unlinkSync(path.join(RECORDINGS_DIR, src.audioFile)); } catch {}
+        }
       }
     }
 
-    // 連動刪除 NotebookLM 筆記（如果建立過）
     const notebookId = m.notebookId;
     if (notebookId) {
       run(NLM_BIN, ['notebook', 'delete', notebookId, '--confirm'])
@@ -575,108 +747,180 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, { ok: true, nlmDeleted: false });
   }
 
-  // 解析 body 為對應的 source payload；失敗則回 {error} 物件
-  function parseSourcePayload(buf, headers, meetingId, sourceIndex) {
-    const kind = (headers['x-source-type'] || 'audio').toLowerCase();
-    if (kind === 'text') {
-      const text = buf.toString('utf8').trim();
-      if (!text) return { error: '文字內容不能為空' };
-      if (text.length > 800000) return { error: '文字稿過長（上限約 80 萬字元），請分段上傳' };
-      return { kind: 'text', payload: { text } };
-    }
-    if (kind === 'url' || kind === 'youtube') {
-      const u = buf.toString('utf8').trim();
-      if (!u) return { error: '網址不能為空' };
-      if (!/^https?:\/\//i.test(u)) return { error: '請提供有效的 http(s) 網址' };
-      return { kind, payload: { url: u } };
-    }
-    if (kind === 'drive') {
-      const driveId = buf.toString('utf8').trim();
-      if (!driveId) return { error: 'Drive 文件 ID 不能為空' };
-      const driveType = (headers['x-drive-type'] || 'doc').toLowerCase().replace(/[^a-z]/g, '') || 'doc';
-      return { kind: 'drive', payload: { driveId, driveType } };
-    }
-    // audio / file
-    const ext = String(headers['x-audio-ext'] || 'm4a').replace(/[^a-z0-9]/gi, '') || 'm4a';
-    const audioFile = sourceIndex == null ? `${meetingId}.${ext}` : `${meetingId}-${sourceIndex}.${ext}`;
-    fs.writeFileSync(path.join(RECORDINGS_DIR, audioFile), buf);
-    return { kind: 'audio', payload: { audioFile, audioSize: buf.length } };
-  }
-
+  // ---------- 建立卷宗 + 第一場 record ----------
   if (req.method === 'POST' && url.pathname === '/api/meetings') {
-    const chunks = [];
-    let total = 0;
-    const MAX = 500 * 1024 * 1024;
-    req.on('data', c => {
-      total += c.length;
-      if (total > MAX) { req.destroy(); return; }
-      chunks.push(c);
-    });
-    req.on('end', () => {
-      const buf = Buffer.concat(chunks);
+    readBody(req, 500 * 1024 * 1024, (buf) => {
       const id = state.nextId++;
-      const parsed = parseSourcePayload(buf, req.headers, id, null);
+      const parsed = parseSourcePayload(buf, req.headers, id, 0, null);
       if (parsed.error) return sendJson(res, 400, { error: parsed.error });
       const mode = String(req.headers['x-meeting-mode'] || '').toLowerCase();
       const meeting = createMeetingFor(id, parsed.kind, parsed.payload, mode);
       sendJson(res, 200, { id, meeting });
-      processMeeting(meeting);
+      processFirstRecord(meeting);
     });
     return;
   }
 
-  // 在既有卷宗加新一段 source（任意來源類型，中場休息／追加場景）
-  const sourcesMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/sources$/);
-  if (req.method === 'POST' && sourcesMatch) {
-    const id = Number(sourcesMatch[1]);
-    const m = state.meetings.find(x => x.id === id);
+  // ---------- 開新一場 record（在既有 meeting） ----------
+  const recordsMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/records$/);
+  if (req.method === 'POST' && recordsMatch) {
+    const id = Number(recordsMatch[1]);
+    const m = findMeeting(id);
     if (!m) return sendJson(res, 404, { error: 'not found' });
-    if (m.stage !== 'done') return sendJson(res, 400, { error: '只有已封印（done）的卷宗能續錄。請先等目前的處理完成。' });
-    if (!m.notebookId) return sendJson(res, 400, { error: '此卷宗沒有對應的 NotebookLM 筆記，無法續錄' });
-
-    const chunks = [];
-    let total = 0;
-    const MAX = 500 * 1024 * 1024;
-    req.on('data', c => {
-      total += c.length;
-      if (total > MAX) { req.destroy(); return; }
-      chunks.push(c);
-    });
-    req.on('end', () => {
-      const buf = Buffer.concat(chunks);
-      const nextIdx = m.sources.length + 1;
-      const parsed = parseSourcePayload(buf, req.headers, id, nextIdx);
+    if (!m.notebookId) return sendJson(res, 400, { error: '此卷宗尚未建立 NotebookLM 筆記，無法新增場次' });
+    readBody(req, 500 * 1024 * 1024, (buf) => {
+      const tempId = m.records.length;
+      const parsed = parseSourcePayload(buf, req.headers, id, tempId, null);
       if (parsed.error) return sendJson(res, 400, { error: parsed.error });
-      m.cancelled = false;
-      m.error = undefined;
-      m.sources.push(buildSourceForAppend(parsed.kind, parsed.payload));
+      const record = createRecordFor(m, parsed.kind, parsed.payload);
+      sendJson(res, 200, { meeting: m, recordId: record.id });
+      processNewRecord(m, record);
+    });
+    return;
+  }
+
+  // ---------- 取消（指定 record） ----------
+  const cancelMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/records\/(\d+)\/cancel$/);
+  if (req.method === 'POST' && cancelMatch) {
+    const id = Number(cancelMatch[1]);
+    const rid = Number(cancelMatch[2]);
+    const m = findMeeting(id);
+    const r = findRecord(m, rid);
+    if (!m || !r) return sendJson(res, 404, { error: 'not found' });
+    if (TERMINAL_STAGES.has(r.stage)) {
+      return sendJson(res, 200, { ok: true, alreadyDone: true });
+    }
+    r.cancelled = true;
+    const proc = activeProcs[procKey(id, rid)];
+    if (proc && !proc.killed) {
+      try { proc.kill('SIGTERM'); } catch {}
+      setTimeout(() => { try { if (!proc.killed) proc.kill('SIGKILL'); } catch {} }, 2000);
+    }
+    if (!busyRecords.has(procKey(id, rid))) {
+      pushStage(m, r, 'cancelled', '已取消');
+      broadcast(id, 'cancelled', { recordId: rid, msg: '已取消' });
+    }
+    return sendJson(res, 200, { ok: true });
+  }
+
+  const clearErrMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/records\/(\d+)\/clear-append-error$/);
+  if (req.method === 'POST' && clearErrMatch) {
+    const id = Number(clearErrMatch[1]);
+    const rid = Number(clearErrMatch[2]);
+    const m = findMeeting(id);
+    const r = findRecord(m, rid);
+    if (!m || !r) return sendJson(res, 404, { error: 'not found' });
+    delete r.appendError;
+    save();
+    return sendJson(res, 200, { ok: true, meeting: m });
+  }
+
+  // ---------- record 改名 ----------
+  const recordItemMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/records\/(\d+)$/);
+  if (recordItemMatch && req.method === 'PATCH') {
+    const id = Number(recordItemMatch[1]);
+    const rid = Number(recordItemMatch[2]);
+    const m = findMeeting(id);
+    const r = findRecord(m, rid);
+    if (!m || !r) return sendJson(res, 404, { error: 'not found' });
+    readBody(req, 64 * 1024, (buf) => {
+      let body;
+      try { body = JSON.parse(buf.toString('utf8') || '{}'); }
+      catch { return sendJson(res, 400, { error: 'invalid json' }); }
+      const title = String(body.title || '').trim();
+      if (!title) return sendJson(res, 400, { error: '標題不可為空' });
+      r.title = title;
       save();
       sendJson(res, 200, { meeting: m });
-      appendSourceToMeeting(m, m.sources.length - 1);
     });
     return;
   }
 
-  // 對單一 source 的改名 / 刪除
-  const sourceItemMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/sources\/(\d+)$/);
-  if (sourceItemMatch && (req.method === 'DELETE' || req.method === 'PATCH')) {
-    const id = Number(sourceItemMatch[1]);
-    const idx = Number(sourceItemMatch[2]);
-    const m = state.meetings.find(x => x.id === id);
+  // ---------- 刪 record（保留卷宗；連同其 source 一起刪） ----------
+  if (recordItemMatch && req.method === 'DELETE') {
+    const id = Number(recordItemMatch[1]);
+    const rid = Number(recordItemMatch[2]);
+    const m = findMeeting(id);
     if (!m) return sendJson(res, 404, { error: 'not found' });
-    if (!TERMINAL_STAGES.has(m.stage)) {
-      return sendJson(res, 400, { error: '卷宗處理中，無法編輯來源；請先取消或等候完成' });
+    const ridx = m.records.findIndex(r => r.id === rid);
+    if (ridx === -1) return sendJson(res, 404, { error: 'record not found' });
+    if (m.records.length === 1) {
+      return sendJson(res, 400, { error: '無法刪除最後一場記錄；請改為刪除整個卷宗' });
     }
-    const src = m.sources?.[idx];
+    const r = m.records[ridx];
+    if (!TERMINAL_STAGES.has(r.stage)) {
+      r.cancelled = true;
+      const proc = activeProcs[procKey(id, rid)];
+      if (proc && !proc.killed) { try { proc.kill('SIGTERM'); } catch {} }
+    }
+    const removed = m.records.splice(ridx, 1)[0];
+    save();
+
+    // NotebookLM 上刪掉這 record 對應的 sources
+    const deletes = (removed.sources || [])
+      .filter(s => s.sourceId)
+      .map(s => run(NLM_BIN, ['source', 'delete', s.sourceId, '--confirm']).catch(e => String(e.message || e)));
+    Promise.all(deletes).then(results => {
+      // 本地音檔
+      for (const src of removed.sources || []) {
+        if (src.audioFile) {
+          try { fs.unlinkSync(path.join(RECORDINGS_DIR, src.audioFile)); } catch {}
+        }
+      }
+      const warnings = results.filter(x => typeof x === 'string');
+      sendJson(res, 200, { meeting: m, nlmWarnings: warnings.length ? warnings : undefined });
+    });
+    return;
+  }
+
+  // ---------- 在指定 record 加 source（追加） ----------
+  const recSourcesMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/records\/(\d+)\/sources$/);
+  if (req.method === 'POST' && recSourcesMatch) {
+    const id = Number(recSourcesMatch[1]);
+    const rid = Number(recSourcesMatch[2]);
+    const m = findMeeting(id);
+    const r = findRecord(m, rid);
+    if (!m || !r) return sendJson(res, 404, { error: 'not found' });
+    if (r.stage !== 'done') return sendJson(res, 400, { error: '只有已封印（done）的場次能續錄。請先等目前的處理完成。' });
+    if (!m.notebookId) return sendJson(res, 400, { error: '此卷宗沒有對應的 NotebookLM 筆記，無法續錄' });
+
+    readBody(req, 500 * 1024 * 1024, (buf) => {
+      const nextIdx = r.sources.length;
+      const parsed = parseSourcePayload(buf, req.headers, id, rid, nextIdx);
+      if (parsed.error) return sendJson(res, 400, { error: parsed.error });
+      r.cancelled = false;
+      r.error = undefined;
+      const src = buildSourceEntry(parsed.kind, parsed.payload);
+      src.title = defaultSourceTitle(src, r, nextIdx);
+      r.sources.push(src);
+      save();
+      sendJson(res, 200, { meeting: m, recordId: r.id });
+      appendSourceToRecord(m, r, r.sources.length - 1);
+    });
+    return;
+  }
+
+  // ---------- record 內 source 改名／刪除 ----------
+  const recSourceItemMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/records\/(\d+)\/sources\/(\d+)$/);
+  if (recSourceItemMatch && (req.method === 'DELETE' || req.method === 'PATCH')) {
+    const id = Number(recSourceItemMatch[1]);
+    const rid = Number(recSourceItemMatch[2]);
+    const sidx = Number(recSourceItemMatch[3]);
+    const m = findMeeting(id);
+    const r = findRecord(m, rid);
+    if (!m || !r) return sendJson(res, 404, { error: 'not found' });
+    if (!TERMINAL_STAGES.has(r.stage)) {
+      return sendJson(res, 400, { error: '場次處理中，無法編輯來源；請先取消或等候完成' });
+    }
+    const src = r.sources?.[sidx];
     if (!src) return sendJson(res, 404, { error: 'source not found' });
 
     if (req.method === 'DELETE') {
-      // NotebookLM 端有對應 source 就嘗試刪
       const nlmTask = src.sourceId
         ? run(NLM_BIN, ['source', 'delete', src.sourceId, '--confirm']).then(() => null).catch(e => String(e.message || e))
         : Promise.resolve(null);
       nlmTask.then(warning => {
-        const removed = m.sources.splice(idx, 1)[0];
+        const removed = r.sources.splice(sidx, 1)[0];
         if (removed?.audioFile) {
           try { fs.unlinkSync(path.join(RECORDINGS_DIR, removed.audioFile)); } catch {}
         }
@@ -686,16 +930,12 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    // PATCH — 改名
-    const chunks = [];
-    req.on('data', c => chunks.push(c));
-    req.on('end', async () => {
+    readBody(req, 64 * 1024, async (buf) => {
       let body;
-      try { body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); }
+      try { body = JSON.parse(buf.toString('utf8') || '{}'); }
       catch { return sendJson(res, 400, { error: 'invalid json' }); }
       const title = String(body.title || '').trim();
       if (!title) return sendJson(res, 400, { error: '標題不可為空' });
-      const prev = src.title;
       src.title = title;
       save();
       if (src.sourceId && m.notebookId) {
@@ -703,7 +943,6 @@ const server = http.createServer((req, res) => {
           await run(NLM_BIN, ['source', 'rename', src.sourceId, title, '--notebook', m.notebookId]);
           sendJson(res, 200, { meeting: m, synced: true });
         } catch (e) {
-          // 本地已存，NotebookLM 端失敗就回 warning（不 rollback，避免使用者覺得改不到）
           sendJson(res, 200, { meeting: m, synced: false, warning: String(e.message || e) });
         }
       } else {
@@ -713,38 +952,39 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 對既有 notebook 重新跑摘要（用於刪除 source 後手動觸發）
-  // 接受 body { mode?: 'meeting' | 'class' }；若提供且與目前不同，會先切 mode 再重跑
-  const resummarizeMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/resummarize$/);
+  // ---------- 對指定 record 重新摘要 ----------
+  const resummarizeMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/records\/(\d+)\/resummarize$/);
   if (req.method === 'POST' && resummarizeMatch) {
     const id = Number(resummarizeMatch[1]);
-    const m = state.meetings.find(x => x.id === id);
-    if (!m) return sendJson(res, 404, { error: 'not found' });
-    if (m.stage !== 'done') return sendJson(res, 400, { error: '只有已封印（done）的卷宗能重新摘要' });
+    const rid = Number(resummarizeMatch[2]);
+    const m = findMeeting(id);
+    const r = findRecord(m, rid);
+    if (!m || !r) return sendJson(res, 404, { error: 'not found' });
+    if (r.stage !== 'done') return sendJson(res, 400, { error: '只有已封印（done）的場次能重新摘要' });
     if (!m.notebookId) return sendJson(res, 400, { error: '此卷宗沒有對應的 NotebookLM 筆記，無法重新摘要' });
-    if (!m.sources?.length) return sendJson(res, 400, { error: '此卷宗目前沒有任何來源，無法產生摘要' });
-    const chunks = [];
-    req.on('data', c => chunks.push(c));
-    req.on('end', () => {
+    if (!r.sources?.length) return sendJson(res, 400, { error: '此場次目前沒有任何來源，無法產生摘要' });
+    readBody(req, 64 * 1024, (buf) => {
       let body = {};
-      const raw = Buffer.concat(chunks).toString('utf8');
+      const raw = buf.toString('utf8');
       if (raw) {
         try { body = JSON.parse(raw); }
         catch { return sendJson(res, 400, { error: 'invalid json' }); }
       }
-      const nextMode = body.mode === 'class' ? 'class' : body.mode === 'meeting' ? 'meeting' : null;
+      // 模式切換放在 meeting 上（整個卷宗共用）
+      const nextMode = ['meeting', 'sync', 'class'].includes(body.mode) ? body.mode : null;
       if (nextMode && nextMode !== (m.mode || 'meeting')) {
         m.mode = nextMode;
       }
-      m.cancelled = false;
-      m.error = undefined;
+      r.cancelled = false;
+      r.error = undefined;
       save();
-      sendJson(res, 200, { meeting: m });
-      resummarizeMeeting(m);
+      sendJson(res, 200, { meeting: m, recordId: r.id });
+      resummarizeRecord(m, r);
     });
     return;
   }
 
+  // ---------- SSE ----------
   const streamMatch = url.pathname.match(/^\/stream\/(\d+)$/);
   if (req.method === 'GET' && streamMatch) {
     const id = Number(streamMatch[1]);
@@ -755,8 +995,13 @@ const server = http.createServer((req, res) => {
       'X-Accel-Buffering': 'no'
     });
     res.write(': connected\n\n');
-    const m = state.meetings.find(x => x.id === id);
-    if (m) res.write(`event: stage\ndata: ${JSON.stringify({ stage: m.stage, msg: m.stageMsg })}\n\n`);
+    const m = findMeeting(id);
+    if (m) {
+      // 把每個 record 當下的 stage 推一次，前端初始化
+      for (const r of m.records || []) {
+        res.write(`event: stage\ndata: ${JSON.stringify({ recordId: r.id, stage: r.stage, msg: r.stageMsg })}\n\n`);
+      }
+    }
     sseClients[id] = sseClients[id] || [];
     sseClients[id].push(res);
     req.on('close', () => {

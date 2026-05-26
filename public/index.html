@@ -214,10 +214,70 @@
       cursor: pointer;
       border: 1px solid transparent;
       display: grid;
-      grid-template-columns: auto 1fr auto;
-      gap: 10px;
+      grid-template-columns: 18px auto 1fr;
+      gap: 8px;
       align-items: center;
       transition: background .12s ease, border-color .12s ease;
+    }
+    .record-chev-btn {
+      appearance: none;
+      width: 18px; height: 18px;
+      display: grid; place-items: center;
+      border: 0;
+      border-radius: 4px;
+      color: var(--ink-mute);
+      cursor: pointer;
+      background: transparent;
+      padding: 0;
+      transition: transform .15s ease, color .15s ease, background .12s ease;
+    }
+    .record-chev-btn:hover { color: var(--ink); background: color-mix(in oklab, var(--paper-3) 80%, transparent); }
+    .record-chev-btn.open { transform: rotate(90deg); color: var(--ink-soft); }
+    .record-chev-btn.placeholder { visibility: hidden; pointer-events: none; }
+
+    .record-children {
+      margin: -2px 0 2px 30px;
+      padding: 2px 0 4px 8px;
+      border-left: 1px dashed var(--rule);
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .record-child {
+      padding: 6px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid transparent;
+      transition: background .12s ease, border-color .12s ease;
+    }
+    .record-child:hover { background: color-mix(in oklab, var(--paper-3) 60%, transparent); }
+    .record-child.active {
+      background: color-mix(in oklab, var(--moon) 14%, var(--paper-3));
+      border-color: color-mix(in oklab, var(--moon) 35%, var(--rule));
+    }
+    .record-child-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--ink-mute);
+      flex-shrink: 0;
+    }
+    .record-child-dot.tag-moon { background: var(--moon); }
+    .record-child-dot.tag-sakura { background: var(--sakura); }
+    .record-child-dot.tag-jade { background: var(--jade); }
+    .record-child-dot.tag-seal { background: var(--seal); }
+    .record-child-title {
+      font-size: 12.5px;
+      color: var(--ink-soft);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      line-height: 1.3;
+    }
+    .record-child.active .record-child-title { color: var(--ink); font-weight: 500; }
+    .record-child-stage {
+      font-size: 10.5px;
+      color: var(--ink-mute);
+      font-variant-numeric: tabular-nums;
     }
     .record:hover { background: color-mix(in oklab, var(--paper-3) 60%, transparent); }
     .record.active {
@@ -890,7 +950,7 @@
       background: currentColor;
     }
 
-    /* idle 卷宗模式切換（會議卷 / 課堂卷） */
+    /* idle 卷宗模式切換（決議卷 / 進度卷 / 課堂卷） */
     .mode-toggle {
       display: inline-flex;
       gap: 4px;
@@ -951,6 +1011,11 @@
       border-color: color-mix(in oklab, var(--moon) 50%, var(--rule));
       background: color-mix(in oklab, var(--moon) 8%, var(--paper-3));
     }
+    .mode-chip.active {
+      color: var(--ink);
+      border-color: color-mix(in oklab, var(--moon) 58%, var(--rule));
+      background: color-mix(in oklab, var(--moon) 18%, var(--paper-3));
+    }
     .mode-chip:disabled { opacity: 0.55; cursor: wait; }
     .mode-chip-glyph {
       width: 18px; height: 18px;
@@ -961,6 +1026,13 @@
       color: var(--ink);
       font-size: 11px;
       font-weight: 600;
+    }
+    .mode-chip-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
     }
 
     /* file drop hint */
@@ -1060,6 +1132,43 @@
       box-shadow: inset 0 -2px 0 var(--moon);
     }
     .scroll-title.saving { opacity: 0.5; pointer-events: none; }
+    /* 場次標題（record title）：較小，行內可編輯。一卷宗多場時尤其重要 */
+    .scroll-subtitle {
+      font-family: "Shippori Mincho", serif;
+      font-size: 15px;
+      line-height: 1.4;
+      letter-spacing: 0.04em;
+      color: var(--ink-soft);
+      margin-top: 6px;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .scroll-subtitle::before {
+      content: "場";
+      display: inline-grid; place-items: center;
+      width: 18px; height: 18px;
+      font-size: 11px;
+      border-radius: 4px;
+      background: color-mix(in oklab, var(--moon) 20%, var(--paper-3));
+      color: var(--moon);
+      font-family: "Shippori Mincho", serif;
+    }
+    .scroll-subtitle[contenteditable="true"] {
+      outline: none;
+      cursor: text;
+      border-radius: 6px;
+      padding: 2px 6px;
+      margin-left: -6px;
+      transition: background .15s ease, box-shadow .15s ease;
+    }
+    .scroll-subtitle[contenteditable="true"]:hover {
+      background: color-mix(in oklab, var(--moon) 8%, transparent);
+    }
+    .scroll-subtitle[contenteditable="true"]:focus {
+      background: color-mix(in oklab, var(--moon) 12%, transparent);
+      box-shadow: inset 0 -2px 0 var(--moon);
+      color: var(--ink);
+    }
+    .scroll-subtitle.saving { opacity: 0.5; pointer-events: none; }
     .scroll-meta {
       display: flex; gap: 14px; margin-top: 8px;
       font-size: 12px; color: var(--ink-soft);
@@ -1190,6 +1299,125 @@
       .scroll-card.enter .seal .stack > span,
       .scroll-card.enter .scroll-title,
       .scroll-card .mote { animation: none !important; opacity: 1 !important; transform: none !important; }
+    }
+
+    /* ── Overview (卷宗總覽) ── */
+    .overview-card-shell {
+      width: min(780px, 100%);
+      background: var(--paper-3);
+      border: 1px solid var(--rule);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 28px 32px 30px;
+      position: relative;
+    }
+    .overview-hd {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--rule);
+    }
+    .overview-actions { display: flex; gap: 8px; align-items: center; }
+    .overview-section { padding-top: 18px; }
+    .overview-section h4 {
+      margin: 0 0 12px;
+      font-family: "Shippori Mincho", serif;
+      font-size: 13px;
+      letter-spacing: 0.3em;
+      color: var(--ink-soft);
+      font-weight: 500;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .overview-section h4::before {
+      content: ""; width: 14px; height: 1px; background: var(--ink-soft);
+    }
+    .overview-list {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .overview-card {
+      appearance: none;
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--rule);
+      background: var(--paper);
+      display: grid;
+      grid-template-columns: auto 1fr auto auto;
+      gap: 12px;
+      align-items: center;
+      font-family: inherit;
+      color: inherit;
+      transition: background .14s ease, border-color .14s ease, transform .12s ease;
+    }
+    .overview-card:hover {
+      background: color-mix(in oklab, var(--paper-3) 50%, var(--paper));
+      border-color: color-mix(in oklab, var(--moon) 28%, var(--rule));
+      transform: translateY(-1px);
+    }
+    .overview-card:active { transform: translateY(0); }
+    .overview-card.active {
+      border-color: color-mix(in oklab, var(--moon) 50%, var(--rule));
+      background: color-mix(in oklab, var(--moon) 10%, var(--paper));
+    }
+    .overview-card-icon {
+      width: 32px; height: 32px;
+      border-radius: 9px;
+      background: var(--paper-3);
+      border: 1px solid var(--rule);
+      display: grid; place-items: center;
+      color: var(--ink-soft);
+      flex-shrink: 0;
+    }
+    .overview-card-icon.tag-moon { background: color-mix(in oklab, var(--moon) 18%, var(--paper-3)); color: var(--moon); }
+    .overview-card-icon.tag-sakura { background: color-mix(in oklab, var(--sakura) 16%, var(--paper-3)); color: var(--sakura); }
+    .overview-card-icon.tag-jade { background: color-mix(in oklab, var(--jade) 16%, var(--paper-3)); color: var(--jade); }
+    .overview-card-icon.tag-seal { background: color-mix(in oklab, var(--seal) 14%, var(--paper-3)); color: var(--seal); }
+    .overview-card-body { min-width: 0; }
+    .overview-card-title {
+      font-size: 14.5px;
+      font-weight: 500;
+      color: var(--ink);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      line-height: 1.3;
+    }
+    .overview-card-meta {
+      margin-top: 4px;
+      font-size: 11.5px;
+      color: var(--ink-soft);
+      display: flex; gap: 6px; align-items: center;
+      font-variant-numeric: tabular-nums;
+    }
+    .overview-card-meta .dot { color: var(--ink-mute); }
+    .overview-card-stage { white-space: nowrap; }
+    .overview-card-arr {
+      color: var(--ink-mute);
+      transition: transform .14s ease, color .14s ease;
+    }
+    .overview-card:hover .overview-card-arr { transform: translateX(2px); color: var(--ink-soft); }
+
+    .overview-add {
+      margin-top: 12px;
+      width: 100%;
+      justify-content: center;
+    }
+
+    /* 「回總覽」chip：放在 record chip bar 最前面 */
+    .record-chip.back {
+      background: color-mix(in oklab, var(--paper-3) 70%, transparent);
+      border-color: var(--rule);
+      color: var(--ink-soft);
+    }
+    .record-chip.back:hover {
+      background: color-mix(in oklab, var(--moon) 12%, var(--paper-3));
+      border-color: color-mix(in oklab, var(--moon) 30%, var(--rule));
+      color: var(--ink);
+    }
+    .record-chip.back .rec-chip-glyph {
+      font-family: "Shippori Mincho", serif;
+      font-size: 11px;
+      letter-spacing: 0.05em;
     }
 
     .scroll-section { padding-top: 18px; }
@@ -1376,11 +1604,109 @@
       white-space: pre-wrap;
     }
     .append-bar {
-      display: flex; flex-wrap: wrap; gap: 8px;
+      display: flex; flex-wrap: wrap; gap: 10px;
       margin-top: 14px;
       padding-top: 14px;
       border-top: 1px dashed var(--rule);
+      align-items: stretch;
     }
+    .append-dropzone {
+      flex: 1; min-width: 0;
+      padding: 10px 14px;
+      border: 1px dashed var(--rule);
+      border-radius: 10px;
+      background: color-mix(in oklab, var(--paper-3) 40%, transparent);
+      text-align: center;
+      font-size: 12px;
+      color: var(--ink-soft);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      gap: 10px; flex-wrap: wrap;
+      transition: background .15s ease, border-color .15s ease, color .15s ease;
+    }
+    .append-dropzone:hover {
+      background: color-mix(in oklab, var(--paper-3) 80%, transparent);
+      border-color: var(--ink-mute);
+      color: var(--ink);
+    }
+    .append-dropzone.dragover {
+      background: color-mix(in oklab, var(--moon) 14%, var(--paper-3));
+      border-color: var(--moon);
+      color: var(--ink);
+    }
+    .append-dropzone .label { font-weight: 500; }
+    .append-dropzone .formats { display: inline-flex; gap: 5px; flex-wrap: wrap; }
+    .append-dropzone .fmt {
+      font-family: ui-monospace, "JetBrains Mono", Menlo, monospace;
+      font-size: 10.5px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: color-mix(in oklab, var(--ink) 6%, transparent);
+      color: var(--ink-soft);
+    }
+    .append-dropzone.disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    .append-hint {
+      width: 100%;
+      font-size: 11.5px;
+      color: var(--ink-mute);
+      text-align: center;
+      margin-top: 2px;
+    }
+    /* record chips：在同一卷宗切換多場記錄 */
+    .record-chips {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px dashed var(--rule);
+    }
+    .record-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 11px;
+      border-radius: 999px;
+      border: 1px solid var(--rule);
+      background: var(--paper-3);
+      color: var(--ink-soft);
+      font-family: inherit;
+      font-size: 12.5px;
+      cursor: pointer;
+      transition: color .12s ease, border-color .12s ease, background .12s ease;
+      max-width: 220px;
+    }
+    .record-chip:hover { color: var(--ink); border-color: var(--ink-mute); }
+    .record-chip.active {
+      color: var(--ink);
+      border-color: var(--moon);
+      background: color-mix(in oklab, var(--moon) 10%, var(--paper-3));
+    }
+    .record-chip .rec-chip-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+    .record-chip .rec-chip-dot.tag-jade { color: var(--jade); }
+    .record-chip .rec-chip-dot.tag-seal { color: var(--seal); }
+    .record-chip .rec-chip-dot.tag-sakura { color: var(--sakura); }
+    .record-chip .rec-chip-dot.tag-moon { color: var(--moon); }
+    .record-chip .rec-chip-label {
+      max-width: 160px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .record-chip .rec-chip-stage {
+      font-size: 11px;
+      color: var(--ink-mute);
+      letter-spacing: 0.06em;
+    }
+    .record-chip.add {
+      color: var(--ink-mute);
+      border-style: dashed;
+      padding: 5px 11px;
+      font-weight: 500;
+    }
+    .record-chip.add:hover { color: var(--ink); border-color: var(--moon); }
     .append-bar .control-btn { font-size: 12.5px; padding: 6px 12px; }
     .append-bar .hint {
       flex: 1; min-width: 0;
@@ -1533,6 +1859,40 @@
       padding: 12px 18px;
       background: var(--paper-3);
     }
+    .image-preview-card {
+      width: min(980px, 94vw);
+      max-height: 90vh;
+    }
+    .image-preview-body {
+      padding: 16px;
+      background:
+        linear-gradient(45deg, color-mix(in oklab, var(--ink) 5%, transparent) 25%, transparent 25%),
+        linear-gradient(-45deg, color-mix(in oklab, var(--ink) 5%, transparent) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, color-mix(in oklab, var(--ink) 5%, transparent) 75%),
+        linear-gradient(-45deg, transparent 75%, color-mix(in oklab, var(--ink) 5%, transparent) 75%),
+        var(--paper);
+      background-size: 22px 22px;
+      background-position: 0 0, 0 11px, 11px -11px, -11px 0;
+      overflow: auto;
+    }
+    .image-preview-frame {
+      min-height: 320px;
+      display: grid;
+      place-items: start center;
+    }
+    .image-preview-frame img {
+      display: block;
+      width: min(100%, 760px);
+      height: auto;
+      border-radius: 10px;
+      border: 1px solid var(--rule);
+      box-shadow: 0 18px 42px rgba(40, 30, 20, .18);
+      background: white;
+    }
+    .image-preview-status {
+      min-height: 1.6em;
+      color: var(--ink-mute);
+    }
 
     /* 新增來源 picker */
     .source-picker { position: relative; display: inline-flex; }
@@ -1549,7 +1909,12 @@
       display: none;
       flex-direction: column;
       gap: 2px;
-      z-index: 50;
+      z-index: 60;
+    }
+    /* down 模式：menu 在按鈕下方展開（chip bar 在 stage-body 頂端，往上會被 overflow 截掉） */
+    .source-picker.down .source-menu {
+      bottom: auto;
+      top: calc(100% + 8px);
     }
     .source-picker.open .source-menu { display: flex; }
     .source-menu button {
@@ -2017,6 +2382,18 @@
 const $ = (s, root) => (root || document).querySelector(s);
 const $$ = (s, root) => Array.from((root || document).querySelectorAll(s));
 
+const MODE_OPTIONS = [
+  { id: 'meeting', label: '決議卷', glyph: '決', section: '決 議 之 卷' },
+  { id: 'sync', label: '進度卷', glyph: '進', section: '進 度 之 卷' },
+  { id: 'class', label: '課堂卷', glyph: '講', section: '課 · 講 · 錄' },
+];
+function normalizeMode(mode) {
+  return MODE_OPTIONS.some(o => o.id === mode) ? mode : 'meeting';
+}
+function modeMeta(mode) {
+  return MODE_OPTIONS.find(o => o.id === normalizeMode(mode)) || MODE_OPTIONS[0];
+}
+
 // ── State ──────────────────────────────────────────────────
 let state = {
   view: 'idle',                // idle | recording | processing | summary | error
@@ -2025,18 +2402,38 @@ let state = {
   recordingStartedAt: null,
   records: [],                 // list summaries from /api/meetings
   currentMeetingId: null,
-  currentMeeting: null,        // full meeting object
+  currentMeeting: null,        // full meeting object（含 records[]）
+  activeRecordId: null,        // 卷宗詳情頁當下聚焦的 record（chip 選中）
   searchQuery: '',
   transcriptOpen: false,
-  openSources: {},             // {index: bool} 摘要頁音源摺疊狀態
-  appendingTo: null,           // 若不為 null，handleStop 會把音檔加到此 meeting 而非新建
-  sourceModal: null,           // { kind, mode } | null 通用來源 modal
+  openSources: {},             // {recordId: {sourceIdx: bool}} 摘要頁音源摺疊狀態（依 record 分桶）
+  uploadIntent: null,          // null=新卷 | {kind:'new-record', meetingId} | {kind:'append-source', meetingId, recordId}
+  sourceModal: null,           // { kind, intent } | null 通用來源 modal
   theme: localStorage.getItem('yomi-theme') || 'day',
   mascot: localStorage.getItem('yomi-mascot') || 'neko',  // 'neko' | 'tsuki'
-  mode: localStorage.getItem('yomi-mode') || 'meeting',   // 'meeting' | 'class' — 影響下一次新建卷
+  mode: normalizeMode(localStorage.getItem('yomi-mode')), // 'meeting' | 'sync' | 'class' — 影響下一次新建卷
   lastAnimatedMeeting: null,   // 摘要 enter 動畫只在切換到不同卷時播放，避免每次 toggle source 都重播
   switchingMode: false,        // 摘要頁切換 mode 中
+  summaryImagePreview: null,   // { blob, url, filename } | null
+  expandedMeetings: new Set(), // 側邊欄展開顯示子場次的 meeting id 集合
 };
+
+// ── 取當前聚焦的 record ────────────────────────────────────
+function activeRecord() {
+  const m = state.currentMeeting;
+  if (!m || !Array.isArray(m.records) || m.records.length === 0) return null;
+  if (state.activeRecordId != null) {
+    const r = m.records.find(r => r.id === state.activeRecordId);
+    if (r) return r;
+  }
+  return m.records[m.records.length - 1];
+}
+function getOpenSources() {
+  const r = activeRecord();
+  if (!r) return {};
+  if (!state.openSources[r.id]) state.openSources[r.id] = {};
+  return state.openSources[r.id];
+}
 
 let timerInterval = null;
 let waveformInterval = null;
@@ -2360,7 +2757,11 @@ async function api(path, opts = {}) {
 function deriveView() {
   if (state.recording) return 'recording';
   if (!state.currentMeeting) return 'idle';
-  const s = state.currentMeeting.stage;
+  // 沒指定 record → 顯示卷宗總覽，讓使用者自己挑要看哪一場
+  if (state.activeRecordId == null) return 'overview';
+  const r = activeRecord();
+  if (!r) return 'overview';
+  const s = r.stage;
   if (s === 'done') return 'summary';
   if (s === 'error' || s === 'cancelled') return 'error';
   return 'processing';
@@ -2389,8 +2790,34 @@ function renderSidebar() {
     const active = r.id === state.currentMeetingId ? ' active' : '';
     const date = fmtDate(r.createdAt);
     const stageTxt = stageLabel(r.stage);
+    const subs = Array.isArray(r.records) ? r.records : [];
+    const hasSubs = subs.length > 0;
+    const expanded = hasSubs && state.expandedMeetings.has(r.id);
+    const chev = hasSubs
+      ? `<button class="record-chev-btn${expanded ? ' open' : ''}" data-toggle="${r.id}" aria-label="${expanded ? '收合' : '展開'}場次" title="${expanded ? '收合場次' : '展開場次'}">
+          <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+            <path d="M4.5 3 L8 6 L4.5 9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>`
+      : `<span class="record-chev-btn placeholder" aria-hidden="true"></span>`;
+    const childrenHtml = expanded
+      ? `<div class="record-children" data-children="${r.id}">
+          ${subs.map(sub => {
+            const subTag = recordTagFor(sub.stage);
+            const subStage = stageLabel(sub.stage);
+            const subActive = (r.id === state.currentMeetingId && sub.id === state.activeRecordId) ? ' active' : '';
+            return `
+              <div class="record-child${subActive}" data-meeting="${r.id}" data-rid="${sub.id}" title="${escapeHtml(sub.title)}">
+                <span class="record-child-dot tag-${subTag}"></span>
+                <span class="record-child-title">${escapeHtml(sub.title)}</span>
+                <span class="record-child-stage">${escapeHtml(subStage)}</span>
+              </div>`;
+          }).join('')}
+        </div>`
+      : '';
     return `
       <div class="record${active}" data-id="${r.id}">
+        ${chev}
         <div class="record-icon tag-${tag}">${recIconSvg(tag)}</div>
         <div style="min-width:0">
           <div class="record-title">${escapeHtml(r.title)}</div>
@@ -2400,11 +2827,45 @@ function renderSidebar() {
             <span class="record-dur">${escapeHtml(stageTxt)}</span>
           </div>
         </div>
-      </div>`;
+      </div>
+      ${childrenHtml}`;
   }).join('');
 
   $$('#records-list .record').forEach(el => {
-    el.addEventListener('click', () => handleSelect(Number(el.dataset.id)));
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('.record-chev-btn')) return; // chevron 自己處理
+      handleSelect(Number(el.dataset.id));
+    });
+  });
+  $$('#records-list .record-chev-btn[data-toggle]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = Number(btn.dataset.toggle);
+      if (state.expandedMeetings.has(id)) state.expandedMeetings.delete(id);
+      else state.expandedMeetings.add(id);
+      renderSidebar();
+    });
+  });
+  $$('#records-list .record-child').forEach(el => {
+    el.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const mid = Number(el.dataset.meeting);
+      const rid = Number(el.dataset.rid);
+      if (state.currentMeetingId === mid) {
+        state.activeRecordId = rid;
+        renderStage();
+        renderSidebar();
+      } else {
+        // 切到別卷宗 + 直接落在指定 record（不走 handleSelect 以免被 reset）
+        state.activeRecordId = rid;
+        try {
+          const m = await api(`/api/meetings/${mid}`);
+          await openMeeting(m);
+        } catch (err) {
+          alert('讀取失敗：' + err.message);
+        }
+      }
+    });
   });
 }
 
@@ -2421,6 +2882,7 @@ function renderStage() {
   if (state.view === 'idle') body.innerHTML = tplIdle();
   else if (state.view === 'recording') body.innerHTML = tplRecording();
   else if (state.view === 'processing') body.innerHTML = tplProcessing();
+  else if (state.view === 'overview') body.innerHTML = tplOverview();
   else if (state.view === 'summary') body.innerHTML = tplSummary();
   else if (state.view === 'error') body.innerHTML = tplError();
 
@@ -2442,7 +2904,9 @@ function renderStage() {
 // 避免 body.innerHTML 重設導致 mascot-wrap 的 keyframe 動畫全部重播。
 function updateProcessingPartial() {
   const m = state.currentMeeting || {};
-  const steps = buildSteps(m.stage);
+  const r = activeRecord();
+  const stage = r ? r.stage : m.stage;
+  const steps = buildSteps(stage);
 
   const stepsEl = $('.processing-card .steps');
   if (stepsEl) {
@@ -2457,7 +2921,75 @@ function updateProcessingPartial() {
   }
 
   const titleEl = $('.processing-card > div:first-child');
-  if (titleEl) titleEl.textContent = m.title || '處理中';
+  if (titleEl) {
+    const t = (r?.title) || m.title || '處理中';
+    titleEl.textContent = t;
+  }
+
+  const snippetEl = $('#snippet');
+  if (snippetEl) {
+    const msg = (r?.stageMsg) || m.stageMsg;
+    if (msg) snippetEl.textContent = `「${msg}」`;
+  }
+
+  // 多場記錄的 chip bar 也要跟著更新 stage 字樣
+  const chipsEl = $('.record-chips');
+  if (chipsEl) {
+    const fresh = recordChipsHtml();
+    if (fresh) {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = fresh.trim();
+      const newChips = wrap.firstElementChild;
+      chipsEl.replaceWith(newChips);
+      // 重新綁 click（被 replaceWith 替換掉的 element 失去 listener）
+      $$('.record-chips .record-chip:not(.add):not(.back)').forEach(b => {
+        b.addEventListener('click', () => {
+          const rid = Number(b.dataset.rid);
+          if (Number.isNaN(rid) || state.activeRecordId === rid) return;
+          state.activeRecordId = rid;
+          state.lastAnimatedMeeting = null;
+          lastRenderedView = null;
+          render();
+        });
+      });
+      const backChip = $('.record-chips .record-chip.back');
+      if (backChip) backChip.addEventListener('click', () => {
+        state.activeRecordId = null;
+        state.lastAnimatedMeeting = null;
+        lastRenderedView = null;
+        render();
+      });
+      wireSourcePicker('btn-source-newrec', 'new-record');
+    }
+  }
+}
+
+// ── 多場記錄 chip bar：在卷宗詳情頁切換不同 record ────────────
+function recordChipsHtml() {
+  const m = state.currentMeeting;
+  if (!m || !Array.isArray(m.records) || m.records.length === 0) return '';
+  const active = activeRecord();
+  const chips = m.records.map((r, i) => {
+    const isActive = active && active.id === r.id ? ' active' : '';
+    const tag = recordTagFor(r.stage);
+    const stageDone = r.stage === 'done';
+    const stageTxt = stageDone ? '' : stageLabel(r.stage);
+    const title = r.title || `第 ${i + 1} 場`;
+    return `
+      <button class="record-chip${isActive}" data-rid="${r.id}" title="${escapeHtml(title)}">
+        <span class="rec-chip-dot tag-${tag}"></span>
+        <span class="rec-chip-label">${escapeHtml(title)}</span>
+        ${stageTxt ? `<span class="rec-chip-stage">${escapeHtml(stageTxt)}</span>` : ''}
+      </button>`;
+  }).join('');
+  return `
+    <div class="record-chips">
+      <button class="record-chip back" title="回到卷宗總覽">
+        <span class="rec-chip-glyph">總覽</span>
+      </button>
+      ${chips}
+      ${sourcePickerHtml('btn-source-newrec', 'new-record', '＋ 開新一場', 'record-chip add', 'down')}
+    </div>`;
 }
 
 // ── Templates ──────────────────────────────────────────────
@@ -2482,14 +3014,12 @@ function tplIdle() {
     </div>
 
     <div class="mode-toggle" role="radiogroup" aria-label="卷宗模式">
-      <button class="mode-opt ${state.mode === 'meeting' ? 'active' : ''}" data-mode="meeting" role="radio" aria-checked="${state.mode === 'meeting'}">
-        <span class="mode-glyph">會</span>
-        <span class="mode-label">會議卷</span>
-      </button>
-      <button class="mode-opt ${state.mode === 'class' ? 'active' : ''}" data-mode="class" role="radio" aria-checked="${state.mode === 'class'}">
-        <span class="mode-glyph">講</span>
-        <span class="mode-label">課堂卷</span>
-      </button>
+      ${MODE_OPTIONS.map(o => `
+        <button class="mode-opt ${state.mode === o.id ? 'active' : ''}" data-mode="${o.id}" role="radio" aria-checked="${state.mode === o.id}">
+          <span class="mode-glyph">${o.glyph}</span>
+          <span class="mode-label">${o.label}</span>
+        </button>
+      `).join('')}
     </div>
 
     <div class="dropzone" id="dropzone">
@@ -2516,20 +3046,29 @@ function tplIdle() {
     </div>`;
 }
 
-function sourcePickerHtml(id, mode, label) {
+function sourcePickerHtml(id, mode, label, btnClass = 'control-btn', direction = 'up') {
+  const showIcon = btnClass === 'control-btn';
+  const hintLine = mode === 'append'
+    ? '追加 · 同一場記錄'
+    : mode === 'new-record'
+      ? '本卷宗 · 開新一場記錄'
+      : '結新卷宗';
+  const dirCls = direction === 'down' ? ' down' : '';
   return `
-    <div class="source-picker" id="${id}-wrap">
-      <button class="control-btn" id="${id}">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+    <div class="source-picker${dirCls}" id="${id}-wrap">
+      <button class="${btnClass}" id="${id}">
+        ${showIcon ? `<svg width="14" height="14" viewBox="0 0 16 16" fill="none">
           <path d="M8 3 v10 M3 8 h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-        </svg>
+        </svg>` : ''}
         ${label}
       </button>
       <div class="source-menu">
-        <div class="hint-row">${mode === 'append' ? '追加 · 同一卷宗' : '結新卷宗'}</div>
+        <div class="hint-row">${hintLine}</div>
         ${mode === 'append' ? `
           <button data-kind="record"><span class="glyph">音</span>續錄音源</button>
-        ` : ''}
+        ` : `
+          <button data-kind="record"><span class="glyph">音</span>開始錄音</button>
+        `}
         <button data-kind="file"><span class="glyph">檔</span>上傳檔案（音檔/PDF/MP4）</button>
         <button data-kind="text"><span class="glyph">文</span>貼上文字稿</button>
         <div class="sep"></div>
@@ -2576,10 +3115,14 @@ function tplRecording() {
 
 function tplProcessing() {
   const m = state.currentMeeting || {};
-  const steps = buildSteps(m.stage);
-  const errored = m.stage === 'error';
+  const r = activeRecord();
+  const stage = r ? r.stage : m.stage;
+  const steps = buildSteps(stage);
+  const errored = stage === 'error';
+  const chips = recordChipsHtml();
 
   return `
+    ${chips}
     <div class="eyebrow" style="color: ${errored ? 'var(--seal)' : 'var(--jade)'}">月 讀 · 閱 讀 中</div>
     <div class="eyebrow-en">Reading the scroll…</div>
 
@@ -2615,11 +3158,11 @@ function tplProcessing() {
       </div>
     </div>
 
-    <div class="snippet" id="snippet">「${escapeHtml(m.stageMsg || SNIPPETS[0])}」</div>
+    <div class="snippet" id="snippet">「${escapeHtml((r?.stageMsg) || m.stageMsg || SNIPPETS[0])}」</div>
 
     <div class="processing-card">
       <div style="font-family: 'Shippori Mincho', serif; font-size: 13px; letter-spacing: 0.3em; color: var(--ink-soft); margin-bottom: 14px;">
-        ${escapeHtml(m.title || '處理中')}
+        ${escapeHtml((r?.title) || m.title || '處理中')}
       </div>
       <div class="steps">
         ${steps.map((s, i) => `
@@ -2639,16 +3182,100 @@ function tplProcessing() {
     </div>`;
 }
 
+function tplOverview() {
+  const m = state.currentMeeting || {};
+  const recs = Array.isArray(m.records) ? m.records : [];
+  const date = m.createdAt ? fmtDateTime(m.createdAt) : '';
+  const modeLabel = modeMeta(m.mode).label;
+
+  const cards = recs.map((r, i) => {
+    const tag = recordTagFor(r.stage);
+    const stageTxt = stageLabel(r.stage);
+    const title = r.title || `第 ${i + 1} 場`;
+    const srcCount = Array.isArray(r.sources) ? r.sources.length : 0;
+    const meta = [];
+    if (r.createdAt) meta.push(fmtDateTime(r.createdAt));
+    if (srcCount > 0) meta.push(`${srcCount} 段來源`);
+    const active = (state.activeRecordId === r.id) ? ' active' : '';
+    return `
+      <button class="overview-card${active}" data-rid="${r.id}" title="進入此場">
+        <div class="overview-card-icon tag-${tag}">${recIconSvg(tag)}</div>
+        <div class="overview-card-body">
+          <div class="overview-card-title">${escapeHtml(title)}</div>
+          <div class="overview-card-meta">
+            ${meta.map((x, j) => `${j > 0 ? '<span class="dot">·</span>' : ''}<span>${escapeHtml(x)}</span>`).join('')}
+          </div>
+        </div>
+        <span class="overview-card-stage chip tag-${tag}">${escapeHtml(stageTxt || '—')}</span>
+        <svg class="overview-card-arr" width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <path d="M5 3 L10 8 L5 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>`;
+  }).join('') || '<div class="record-empty">尚無任何場次</div>';
+
+  return `
+    <div class="eyebrow">卷 · 軸 · 總 · 覽</div>
+    <div class="eyebrow-en">Choose a record to view</div>
+
+    <div class="overview-card-shell">
+      <div class="overview-hd">
+        <div style="min-width:0;flex:1">
+          <div class="scroll-title" id="scroll-title" contenteditable="true" spellcheck="false" title="點擊編輯卷宗標題（NotebookLM 同步），Enter 儲存、Esc 取消">${escapeHtml(m.title || '會議卷軸')}</div>
+          <div class="scroll-meta">
+            ${date ? `<span>${escapeHtml(date)}</span>` : ''}
+            ${date ? '<span class="dot">·</span>' : ''}
+            <span>${modeLabel}</span>
+            <span class="dot">·</span>
+            <span>共 ${recs.length} 場</span>
+          </div>
+          ${m.notebookId ? `
+            <div class="chips">
+              <a class="chip link tag-moon" href="${notebookLmUrl(m.notebookId)}" target="_blank" rel="noopener" title="在 NotebookLM 開啟此筆記">
+                NotebookLM <span class="arr">↗</span>
+              </a>
+            </div>
+          ` : ''}
+        </div>
+        <div class="overview-actions">
+          <button class="icon-ghost" id="btn-delete" title="解除整個卷宗">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M3 5 H13 M6 5 V3 H10 V5 M5 5 L6 13 H10 L11 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="overview-section">
+        <h4>場 · 次 · 之 · 卷</h4>
+        <div class="overview-list">
+          ${cards}
+        </div>
+        ${m.notebookId ? sourcePickerHtml('btn-source-newrec', 'new-record', '＋ 開新一場', 'control-btn overview-add', 'down') : ''}
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="control-btn ghost" id="btn-back">回到首頁</button>
+    </div>`;
+}
+
 function tplSummary() {
   const m = state.currentMeeting || {};
+  const r = activeRecord() || {};
+  const mode = normalizeMode(m.mode);
+  const modeInfo = modeMeta(mode);
   const meta = [];
-  if (m.createdAt) meta.push(fmtDateTime(m.createdAt));
-  if (m.completedAt) meta.push('已封印於 ' + fmtDateTime(m.completedAt));
+  if (r.createdAt || m.createdAt) meta.push(fmtDateTime(r.createdAt || m.createdAt));
+  if (r.completedAt) meta.push('已封印於 ' + fmtDateTime(r.completedAt));
 
-  const sources = Array.isArray(m.sources) ? m.sources : [];
+  const sources = Array.isArray(r.sources) ? r.sources : [];
+  const openMap = getOpenSources();
+  const multiRecord = (m.records || []).length > 1;
 
   const enter = state.lastAnimatedMeeting === m.id ? '' : ' enter';
+  const chips = recordChipsHtml();
   return `
+    ${chips}
     <div class="eyebrow">卷 · 軸 · 完 · 成</div>
     <div class="eyebrow-en">The scroll is sealed</div>
 
@@ -2658,22 +3285,39 @@ function tplSummary() {
       <span class="mote m3" aria-hidden="true"></span>
       <div class="scroll-actions">
         ${m.notebookId ? `
-          <button class="mode-chip" id="btn-switch-mode" title="切換卷宗模式並重新整理摘要" ${state.switchingMode ? 'disabled' : ''}>
-            <span class="mode-chip-glyph">${m.mode === 'class' ? '講' : '會'}</span>
-            <span class="mode-chip-label">${m.mode === 'class' ? '課堂卷' : '會議卷'}</span>
-          </button>
+          <div class="mode-chip-group" title="切換此場摘要模式（卷宗模式同步更新）">
+            ${MODE_OPTIONS.map(o => `
+              <button class="mode-chip summary-mode-opt ${mode === o.id ? 'active' : ''}" data-summary-mode="${o.id}" ${state.switchingMode ? 'disabled' : ''}>
+                <span class="mode-chip-glyph">${o.glyph}</span>
+                <span class="mode-chip-label">${o.label}</span>
+              </button>
+            `).join('')}
+          </div>
           <a class="icon-ghost" href="${notebookLmUrl(m.notebookId)}" target="_blank" rel="noopener" title="在 NotebookLM 開啟" style="text-decoration:none">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M6 3 H3 V13 H13 V10 M9 3 H13 V7 M13 3 L8 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </a>
-          <button class="icon-ghost" id="btn-resummarize" title="依目前所有來源重新整理摘要">
+          <button class="icon-ghost" id="btn-resummarize" title="依此場所有來源重新整理摘要">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M3 8 a5 5 0 1 1 1.8 3.7 M3 4 V8 H7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
+          <button class="icon-ghost" id="btn-export-summary-image" title="匯出會議結果截圖">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M5.2 5 L6.2 3.5 H9.8 L10.8 5 H13 V12.5 H3 V5 H5.2 Z" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/>
+              <circle cx="8" cy="8.8" r="2" stroke="currentColor" stroke-width="1.35"/>
+            </svg>
+          </button>
         ` : ''}
-        <button class="icon-ghost" id="btn-delete" title="解除此卷">
+        ${multiRecord ? `
+          <button class="icon-ghost" id="btn-delete-record" title="刪除此場記錄（卷宗保留）">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M3 5 H13 M6 5 V3 H10 V5 M5 5 L6 13 H10 L11 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        ` : ''}
+        <button class="icon-ghost" id="btn-delete" title="解除整個卷宗">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
             <path d="M3 5 H13 M6 5 V3 H10 V5 M5 5 L6 13 H10 L11 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
@@ -2682,7 +3326,8 @@ function tplSummary() {
 
       <div class="scroll-hd">
         <div style="min-width:0;flex:1">
-          <div class="scroll-title" id="scroll-title" contenteditable="true" spellcheck="false" title="點擊編輯標題，Enter 儲存、Esc 取消">${escapeHtml(m.title || '會議卷軸')}</div>
+          <div class="scroll-title" id="scroll-title" contenteditable="true" spellcheck="false" title="點擊編輯卷宗標題（NotebookLM 同步），Enter 儲存、Esc 取消">${escapeHtml(m.title || '會議卷軸')}</div>
+          <div class="scroll-subtitle" id="scroll-subtitle" contenteditable="true" spellcheck="false" title="點擊編輯此場記錄名稱，Enter 儲存、Esc 取消">${escapeHtml(r.title || `會議記錄 ${(m.records || []).findIndex(x => x.id === r.id) + 1}`)}</div>
           <div class="scroll-meta">
             ${meta.map((x, i) => `${i > 0 ? '<span class="dot">·</span>' : ''}<span>${escapeHtml(x)}</span>`).join('')}
           </div>
@@ -2706,16 +3351,16 @@ function tplSummary() {
       </div>
 
       <div class="scroll-section">
-        <h4>${m.mode === 'class' ? '課 · 講 · 錄' : '月 讀 之 言'}</h4>
-        <div class="body-text md">${m.summary ? renderMarkdown(renameLegacyHeaders(m.summary)) : '（尚未產生摘要）'}</div>
+        <h4>${modeInfo.section}</h4>
+        <div class="body-text md">${r.summary ? renderMarkdown(renameLegacyHeaders(r.summary)) : '（尚未產生摘要）'}</div>
       </div>
 
       <div class="scroll-section">
         <h4>音 源 卷${sources.length > 1 ? ` · ${sources.length} 段` : ''}</h4>
         <div class="sources-list">
           ${sources.map((s, i) => {
-            const open = !!state.openSources[i];
-            const meta = s.addedAt ? fmtDateTime(s.addedAt) : '';
+            const open = !!openMap[i];
+            const metaTxt = s.addedAt ? fmtDateTime(s.addedAt) : '';
             const isText = s.kind === 'text';
             const kindChip = isText
               ? '<span class="source-kind-chip">文 字</span>'
@@ -2726,7 +3371,7 @@ function tplSummary() {
                   <span class="source-num">第 ${i + 1} 段</span>
                   ${kindChip}
                   ${s.title ? `<span class="source-title" title="${escapeHtml(s.title)}">${escapeHtml(s.title)}</span>` : ''}
-                  <span class="source-meta">${escapeHtml(meta)}</span>
+                  <span class="source-meta">${escapeHtml(metaTxt)}</span>
                   <span class="source-spacer"></span>
                   <span class="source-actions">
                     <button class="source-action-btn" data-action="rename" data-idx="${i}" title="改名" aria-label="改名第 ${i + 1} 段">
@@ -2751,14 +3396,22 @@ function tplSummary() {
           }).join('') || '<div class="record-empty">（無音源）</div>'}
         </div>
         <div class="append-bar">
-          <span class="hint">中場休息續錄、追加文字稿、網頁、YouTube 都可加進這同一個卷宗；摘要會自動重整</span>
-          ${sourcePickerHtml('btn-source-append', 'append', '追加來源')}
+          <div class="append-dropzone${r.stage !== 'done' ? ' disabled' : ''}" id="append-dropzone" title="${r.stage !== 'done' ? '此場處理中，無法追加' : '拖檔到這裡，或點此選檔上傳到本場'}">
+            <span class="label">＋ 拖檔到這裡，或點此選檔</span>
+            <span class="formats">
+              <span class="fmt">音檔</span>
+              <span class="fmt">PDF</span>
+              <span class="fmt">MP4</span>
+            </span>
+          </div>
+          ${sourcePickerHtml('btn-source-append', 'append', '其他來源')}
+          <div class="append-hint">中場休息續錄、追加文字稿、網頁、YouTube 都可加進本場；摘要會自動重整</div>
         </div>
 
-        ${m.appendError ? `
+        ${r.appendError ? `
           <div class="append-error" id="append-error-banner">
             <div class="seal-icon">!</div>
-            <div class="msg">${escapeHtml(m.appendError)}</div>
+            <div class="msg">${escapeHtml(r.appendError)}</div>
             <button class="dismiss" id="btn-dismiss-append-error">收起</button>
           </div>
         ` : ''}
@@ -2778,7 +3431,13 @@ function tplSummary() {
 
 function tplError() {
   const m = state.currentMeeting || {};
+  const r = activeRecord();
+  const errMsg = (r?.stageMsg) || (r?.error) || m.stageMsg || m.error || '未知錯誤';
+  const titleTxt = (r?.title) || m.title || '會議卷軸';
+  const chips = recordChipsHtml();
+  const onlyRecord = !m.records || m.records.length <= 1;
   return `
+    ${chips}
     <div class="eyebrow" style="color: var(--seal)">崩 · 印</div>
     <div class="eyebrow-en">The scroll was torn</div>
 
@@ -2792,15 +3451,21 @@ function tplError() {
 
     <div class="scroll-card">
       <div class="scroll-actions">
-        <button class="icon-ghost" id="btn-delete" title="解除此卷">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <path d="M3 5 H13 M6 5 V3 H10 V5 M5 5 L6 13 H10 L11 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
+        ${onlyRecord
+          ? `<button class="icon-ghost" id="btn-delete" title="解除此卷">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M3 5 H13 M6 5 V3 H10 V5 M5 5 L6 13 H10 L11 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>`
+          : `<button class="icon-ghost" id="btn-delete-record" title="刪除此場記錄">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M3 5 H13 M6 5 V3 H10 V5 M5 5 L6 13 H10 L11 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>`}
       </div>
       <div class="scroll-hd">
         <div style="min-width:0;flex:1">
-          <div class="scroll-title">${escapeHtml(m.title || '會議卷軸')}</div>
+          <div class="scroll-title">${escapeHtml(titleTxt)}</div>
           <div class="scroll-meta">
             <span style="color: var(--seal)">處理時發生錯誤</span>
           </div>
@@ -2814,7 +3479,7 @@ function tplError() {
       </div>
       <div class="scroll-section">
         <h4>錯 誤 訊 息</h4>
-        <div class="body-text">${escapeHtml(m.stageMsg || m.error || '未知錯誤')}</div>
+        <div class="body-text">${escapeHtml(errMsg)}</div>
       </div>
     </div>
 
@@ -2825,11 +3490,19 @@ function tplError() {
 
 // ── Build processing steps from stage ──────────────────────
 function buildSteps(stage) {
-  const isAppending = state.currentMeeting?.stage === 'appending'
-    || (state.currentMeeting?.sources?.length > 1 && stage !== 'done' && stage !== 'error' && stage !== 'cancelled');
+  const r = activeRecord();
+  const isSyncMode = normalizeMode(state.currentMeeting?.mode) === 'sync';
+  const srcCount = r?.sources?.length || 0;
+  const isAppending = stage === 'appending'
+    || (srcCount > 1 && stage !== 'done' && stage !== 'error' && stage !== 'cancelled');
   const order = isAppending
     ? ['續封新一段音源', '聆聽轉錄新段落', '重整全卷摘要', '蓋上月影之印 · 完成卷軸']
-    : ['封存音檔 · 加密保存', '聆聽轉錄 · 含說話人辨識', '月讀閱讀 · 抓取重點與行動項', '蓋上月影之印 · 完成卷軸'];
+    : [
+        '封存音檔 · 加密保存',
+        '聆聽轉錄 · 含說話人辨識',
+        isSyncMode ? '月讀閱讀 · 整理進度與追蹤項' : '月讀閱讀 · 抓取重點與行動項',
+        '蓋上月影之印 · 完成卷軸'
+      ];
   const map = {
     queued:       0,
     creating:     0,
@@ -2852,6 +3525,43 @@ function buildSteps(stage) {
 
 // ── Wire interactions per view ─────────────────────────────
 function wireStage() {
+  // 多場記錄 chip bar
+  $$('.record-chips .record-chip:not(.add):not(.back)').forEach(b => {
+    b.addEventListener('click', () => {
+      const rid = Number(b.dataset.rid);
+      if (Number.isNaN(rid)) return;
+      if (state.activeRecordId === rid) return;
+      state.activeRecordId = rid;
+      // 切換 record 時，動畫重新播一次（看起來像進到新卷）
+      state.lastAnimatedMeeting = null;
+      lastRenderedView = null;
+      render();
+    });
+  });
+
+  // 「回總覽」chip
+  const backToOverview = $('.record-chips .record-chip.back');
+  if (backToOverview) {
+    backToOverview.addEventListener('click', () => {
+      state.activeRecordId = null;
+      state.lastAnimatedMeeting = null;
+      lastRenderedView = null;
+      render();
+    });
+  }
+
+  // Overview 卡片點擊 → 進入對應場次
+  $$('.overview-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const rid = Number(card.dataset.rid);
+      if (Number.isNaN(rid)) return;
+      state.activeRecordId = rid;
+      state.lastAnimatedMeeting = null;
+      lastRenderedView = null;
+      render();
+    });
+  });
+
   // Idle
   const mascotBtn = $('#mascot-btn');
   if (mascotBtn) mascotBtn.addEventListener('click', handleStart);
@@ -2872,7 +3582,7 @@ function wireStage() {
   }
   $$('.mode-opt').forEach(b => {
     b.addEventListener('click', () => {
-      const next = b.dataset.mode === 'class' ? 'class' : 'meeting';
+      const next = normalizeMode(b.dataset.mode);
       if (next === state.mode) return;
       state.mode = next;
       localStorage.setItem('yomi-mode', next);
@@ -2895,7 +3605,8 @@ function wireStage() {
     el.addEventListener('click', (e) => {
       if (e.target.closest('.source-action-btn')) return; // 讓 rename / delete 自己處理
       const idx = Number(el.dataset.toggle);
-      state.openSources[idx] = !state.openSources[idx];
+      const openMap = getOpenSources();
+      openMap[idx] = !openMap[idx];
       renderStage();
     });
   });
@@ -2910,16 +3621,56 @@ function wireStage() {
   });
   const btnResummarize = $('#btn-resummarize');
   if (btnResummarize) btnResummarize.addEventListener('click', handleResummarize);
+  const btnExportSummaryImage = $('#btn-export-summary-image');
+  if (btnExportSummaryImage) btnExportSummaryImage.addEventListener('click', handleExportSummaryImage);
 
-  const btnSwitchMode = $('#btn-switch-mode');
-  if (btnSwitchMode) btnSwitchMode.addEventListener('click', handleSwitchMode);
+  $$('.summary-mode-opt').forEach(b => {
+    b.addEventListener('click', () => handleSwitchMode(b.dataset.summaryMode));
+  });
 
-  // Source pickers (Idle + Append)
+  const btnDeleteRecord = $('#btn-delete-record');
+  if (btnDeleteRecord) btnDeleteRecord.addEventListener('click', handleDeleteRecord);
+
+  // Source pickers (Idle + Append + New-Record)
   wireSourcePicker('btn-source-create', 'create');
   wireSourcePicker('btn-source-append', 'append');
+  wireSourcePicker('btn-source-newrec', 'new-record');
 
   const btnDismiss = $('#btn-dismiss-append-error');
   if (btnDismiss) btnDismiss.addEventListener('click', handleDismissAppendError);
+
+  // 追加區的拖檔 / 點擊上傳
+  const adz = $('#append-dropzone');
+  if (adz && !adz.classList.contains('disabled')) {
+    ['dragenter', 'dragover'].forEach(ev => adz.addEventListener(ev, e => {
+      e.preventDefault(); e.stopPropagation();
+      adz.classList.add('dragover');
+    }));
+    adz.addEventListener('dragleave', e => {
+      e.preventDefault(); e.stopPropagation();
+      // 只有真的離開元件才移除（避免 hover 到子元素時閃爍）
+      if (!adz.contains(e.relatedTarget)) adz.classList.remove('dragover');
+    });
+    adz.addEventListener('drop', e => {
+      e.preventDefault(); e.stopPropagation();
+      adz.classList.remove('dragover');
+      const f = e.dataTransfer?.files?.[0];
+      if (!f) return;
+      if (!setUploadIntent('append')) return;
+      handleUpload(f);
+    });
+    adz.addEventListener('click', () => {
+      if (!setUploadIntent('append')) return;
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'audio/*,video/quicktime,.pdf,.mp3,.m4a,.wav,.mov,.mp4,.webm,.ogg';
+      input.addEventListener('change', () => {
+        const f = input.files?.[0];
+        if (f) handleUpload(f);
+      });
+      input.click();
+    });
+  }
 
   const btnDelete = $('#btn-delete');
   if (btnDelete) btnDelete.addEventListener('click', handleDelete);
@@ -2939,6 +3690,22 @@ function wireStage() {
       if (!next) { titleEl.textContent = original; return; }
       if (next === original) return;
       await handleRenameTitle(next, original, titleEl);
+    });
+  }
+
+  const subtitleEl = $('#scroll-subtitle');
+  if (subtitleEl) {
+    let originalSub = subtitleEl.textContent;
+    subtitleEl.addEventListener('focus', () => { originalSub = subtitleEl.textContent; });
+    subtitleEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); subtitleEl.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); subtitleEl.textContent = originalSub; subtitleEl.blur(); }
+    });
+    subtitleEl.addEventListener('blur', async () => {
+      const next = subtitleEl.textContent.trim();
+      if (!next) { subtitleEl.textContent = originalSub; return; }
+      if (next === originalSub) return;
+      await handleRenameRecord(next, originalSub, subtitleEl);
     });
   }
 }
@@ -3047,7 +3814,8 @@ async function handleStart() {
     mediaRecorder.start(1000);
     state.recording = true;
     state.recordingStartedAt = Date.now();
-    if (!state.appendingTo) {
+    // 只有「新卷宗」模式才清空目前卷宗；new-record / append-source 都要保留
+    if (!state.uploadIntent) {
       state.currentMeetingId = null;
       state.currentMeeting = null;
     }
@@ -3057,6 +3825,21 @@ async function handleStart() {
     const reason = (e && e.name === 'NotAllowedError') ? '麥克風權限被拒。請到瀏覽器網址列旁邊的鎖頭圖示，把麥克風設成允許。' : (e.message || String(e));
     alert('開始錄音失敗：' + reason);
   }
+}
+
+// 根據 uploadIntent 算出 POST endpoint 與 headers
+function uploadEndpointAndHeaders(extraHeaders = {}) {
+  const intent = state.uploadIntent;
+  let endpoint = '/api/meetings';
+  const headers = { ...extraHeaders };
+  if (!intent) {
+    headers['X-Meeting-Mode'] = state.mode;
+  } else if (intent.kind === 'new-record') {
+    endpoint = `/api/meetings/${intent.meetingId}/records`;
+  } else if (intent.kind === 'append-source') {
+    endpoint = `/api/meetings/${intent.meetingId}/records/${intent.recordId}/sources`;
+  }
+  return { endpoint, headers };
 }
 
 function cleanupRecorder() {
@@ -3083,14 +3866,16 @@ async function handleStop() {
   state.recording = false;
   state.recordingStartedAt = null;
 
-  const appendingTo = state.appendingTo;
-  state.appendingTo = null;
+  const { endpoint, headers } = uploadEndpointAndHeaders({
+    'Content-Type': 'application/octet-stream',
+    'X-Audio-Ext': recordedExt,
+  });
+  state.uploadIntent = null;
   try {
     const buf = await blob.arrayBuffer();
-    const endpoint = appendingTo ? `/api/meetings/${appendingTo}/sources` : '/api/meetings';
-    const headers = { 'Content-Type': 'application/octet-stream', 'X-Audio-Ext': recordedExt };
-    if (!appendingTo) headers['X-Meeting-Mode'] = state.mode;
     const data = await api(endpoint, { method: 'POST', headers, body: buf });
+    const meetingId = data.meeting?.id ?? data.id;
+    if (typeof data.recordId === 'number') state.activeRecordId = data.recordId;
     await openMeeting(data.meeting);
     await refreshList();
   } catch (e) {
@@ -3099,15 +3884,18 @@ async function handleStop() {
   }
 }
 
-async function handleUpload(file, appendingTo = null) {
+async function handleUpload(file) {
   const m = file.name.match(/\.([^.]+)$/);
   const ext = (m ? m[1] : 'm4a').toLowerCase();
   const buf = await file.arrayBuffer();
+  const { endpoint, headers } = uploadEndpointAndHeaders({
+    'Content-Type': 'application/octet-stream',
+    'X-Audio-Ext': ext,
+  });
+  state.uploadIntent = null;
   try {
-    const endpoint = appendingTo ? `/api/meetings/${appendingTo}/sources` : '/api/meetings';
-    const headers = { 'Content-Type': 'application/octet-stream', 'X-Audio-Ext': ext };
-    if (!appendingTo) headers['X-Meeting-Mode'] = state.mode;
     const data = await api(endpoint, { method: 'POST', headers, body: buf });
+    if (typeof data.recordId === 'number') state.activeRecordId = data.recordId;
     await openMeeting(data.meeting);
     await refreshList();
   } catch (e) {
@@ -3115,29 +3903,13 @@ async function handleUpload(file, appendingTo = null) {
   }
 }
 
-async function handleAppendRecord() {
-  if (!state.currentMeetingId) return;
-  if (state.currentMeeting?.stage !== 'done') {
-    alert('只有已封印的卷宗能續錄');
-    return;
-  }
-  state.appendingTo = state.currentMeetingId;
-  await handleStart();
-}
-
-function handleAppendUploadClick() {
-  if (!state.currentMeetingId) return;
-  if (state.currentMeeting?.stage !== 'done') {
-    alert('只有已封印的卷宗能追加音檔');
-    return;
-  }
-  const id = state.currentMeetingId;
+function handleUploadFilePick() {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'audio/*,.m4a,.mp3,.wav,.mov,.mp4,.webm,.ogg,.pdf';
   input.addEventListener('change', () => {
     const f = input.files?.[0];
-    if (f) handleUpload(f, id);
+    if (f) handleUpload(f);
   });
   input.click();
 }
@@ -3164,13 +3936,38 @@ function wireSourcePicker(buttonId, mode) {
     });
   });
 }
+// 根據 picker 模式，把 state.uploadIntent 設好
+function setUploadIntent(mode) {
+  if (mode === 'append') {
+    if (state.currentMeetingId == null) return false;
+    const r = activeRecord();
+    if (!r) return false;
+    if (r.stage !== 'done') {
+      alert('只有已封印的場次能追加來源；請先等處理完成或取消');
+      return false;
+    }
+    state.uploadIntent = { kind: 'append-source', meetingId: state.currentMeetingId, recordId: r.id };
+  } else if (mode === 'new-record') {
+    if (state.currentMeetingId == null) return false;
+    state.uploadIntent = { kind: 'new-record', meetingId: state.currentMeetingId };
+  } else {
+    state.uploadIntent = null;
+  }
+  return true;
+}
+
 function handleSourcePick(kind, mode) {
+  if (!setUploadIntent(mode)) return;
   if (kind === 'record') {
-    if (mode === 'append') handleAppendRecord();
-    else handleStart();
+    handleStart();
   } else if (kind === 'file') {
-    if (mode === 'append') handleAppendUploadClick();
-    else $('#file-input').click();
+    if (mode === 'create') {
+      // idle 主 file-input 已綁全域 change handler，直接用
+      $('#file-input').click();
+    } else {
+      // append / new-record 需要本地檔案 picker（避免共用全域 input 沒帶 intent）
+      handleUploadFilePick();
+    }
   } else if (['text', 'url', 'youtube', 'drive'].includes(kind)) {
     openSourceModal(kind, mode);
   }
@@ -3216,9 +4013,12 @@ const MODAL_CFG = {
 function openSourceModal(kind, mode) {
   const cfg = MODAL_CFG[kind];
   if (!cfg) return;
-  if (mode === 'append' && state.currentMeeting?.stage !== 'done') {
-    alert('只有已封印的卷宗能追加來源');
-    return;
+  if (mode === 'append') {
+    const r = activeRecord();
+    if (!r || r.stage !== 'done') {
+      alert('只有已封印的場次能追加來源');
+      return;
+    }
   }
   state.sourceModal = { kind, mode };
   document.getElementById('text-modal-title').textContent = cfg.title;
@@ -3245,27 +4045,26 @@ function closeSourceModal() {
 }
 async function handleSourceSubmit() {
   if (!state.sourceModal) return;
-  const { kind, mode } = state.sourceModal;
+  const { kind } = state.sourceModal;
   const input = document.getElementById('modal-input');
   if (!input) return;
   const value = input.value.trim();
   if (!value) { alert('內容不能為空'); input.focus(); return; }
 
-  const headers = {
+  const extra = {
     'Content-Type': 'text/plain; charset=utf-8',
     'X-Source-Type': kind,
   };
   if (kind === 'drive') {
     const dt = document.getElementById('modal-drive-type');
-    if (dt && dt.value) headers['X-Drive-Type'] = dt.value;
+    if (dt && dt.value) extra['X-Drive-Type'] = dt.value;
   }
-  const endpoint = mode === 'append' && state.currentMeetingId
-    ? `/api/meetings/${state.currentMeetingId}/sources`
-    : '/api/meetings';
-  if (mode !== 'append') headers['X-Meeting-Mode'] = state.mode;
+  const { endpoint, headers } = uploadEndpointAndHeaders(extra);
+  state.uploadIntent = null;
   closeSourceModal();
   try {
     const data = await api(endpoint, { method: 'POST', headers, body: value });
+    if (typeof data.recordId === 'number') state.activeRecordId = data.recordId;
     await openMeeting(data.meeting);
     await refreshList();
   } catch (e) {
@@ -3275,12 +4074,13 @@ async function handleSourceSubmit() {
 
 async function handleCancel() {
   const id = state.currentMeetingId;
-  if (!id) return;
+  const r = activeRecord();
+  if (id == null || !r) return;
   if (!confirm('確定要中止這次處理嗎？已建立的 NotebookLM 筆記不會被刪除。')) return;
   const btn = $('#btn-cancel');
   if (btn) { btn.disabled = true; btn.textContent = '中止中…'; }
   try {
-    await api(`/api/meetings/${id}/cancel`, { method: 'POST' });
+    await api(`/api/meetings/${id}/records/${r.id}/cancel`, { method: 'POST' });
     // 後端會 broadcast cancelled，SSE 會更新；保險起見 refresh 一次
     const m = await api(`/api/meetings/${id}`);
     await openMeeting(m);
@@ -3293,7 +4093,7 @@ async function handleCancel() {
 
 async function handleRenameTitle(next, prev, titleEl) {
   const id = state.currentMeetingId;
-  if (!id) return;
+  if (id == null) return;
   titleEl.classList.add('saving');
   try {
     const r = await api(`/api/meetings/${id}`, {
@@ -3301,10 +4101,17 @@ async function handleRenameTitle(next, prev, titleEl) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: next })
     });
-    if (state.currentMeeting) state.currentMeeting.title = r.meeting.title;
+    if (state.currentMeeting) {
+      state.currentMeeting.title = r.meeting.title;
+      state.currentMeeting.notebookId = r.meeting.notebookId;
+    }
     titleEl.textContent = r.meeting.title;
     await refreshList();
-    if (r.warning) alert('已存到本地，但同步 NotebookLM 失敗：\n' + r.warning);
+    if (r.notebookMissing) {
+      alert('本地已更名。\n\nNotebookLM 上找不到對應筆記本（可能已被刪除或換了帳號），已解除連結。此卷之後無法續錄、新增場次或重新摘要；可保留作為本地存檔。');
+    } else if (r.warning) {
+      alert('已存到本地，但同步 NotebookLM 失敗：\n' + r.warning);
+    }
   } catch (e) {
     titleEl.textContent = prev;
     alert('改名失敗：' + e.message);
@@ -3314,9 +4121,11 @@ async function handleRenameTitle(next, prev, titleEl) {
 }
 
 async function handleSelect(id) {
+  // 從側邊欄點卷宗 → 進「總覽」，讓使用者自己挑要看哪一場
+  state.activeRecordId = null;
   try {
     const m = await api(`/api/meetings/${id}`);
-    await openMeeting(m);
+    await openMeeting(m, { keepNull: true });
   } catch (e) {
     alert('讀取失敗：' + e.message);
   }
@@ -3324,10 +4133,10 @@ async function handleSelect(id) {
 
 async function handleDismissAppendError() {
   const id = state.currentMeetingId;
-  if (!id) return;
+  const rec = activeRecord();
+  if (id == null || !rec) return;
   try {
-    const r = await api(`/api/meetings/${id}/clear-append-error`, { method: 'POST' });
-    if (state.currentMeeting) state.currentMeeting.appendError = undefined;
+    const r = await api(`/api/meetings/${id}/records/${rec.id}/clear-append-error`, { method: 'POST' });
     if (r.meeting) state.currentMeeting = r.meeting;
     renderStage();
   } catch (e) {
@@ -3336,7 +4145,7 @@ async function handleDismissAppendError() {
 }
 
 async function handleDelete() {
-  if (!state.currentMeetingId) return;
+  if (state.currentMeetingId == null) return;
   if (!confirm('確定解除此卷？此記憶將永遠湮滅（NotebookLM 上的對應筆記也會一併刪除）。')) return;
   try {
     const r = await fetch(`/api/meetings/${state.currentMeetingId}`, { method: 'DELETE' });
@@ -3358,23 +4167,24 @@ function handleBackToIdle() {
   state.currentMeeting = null;
   state.transcriptOpen = false;
   state.openSources = {};
-  state.appendingTo = null;
+  state.activeRecordId = null;
+  state.uploadIntent = null;
   state.lastAnimatedMeeting = null;
   closeStream();
   render();
 }
 
 async function handleSourceRename(idx) {
-  const m = state.currentMeeting;
-  const src = m?.sources?.[idx];
-  if (!src) return;
+  const rec = activeRecord();
+  const src = rec?.sources?.[idx];
+  if (!rec || !src) return;
   const next = window.prompt(`為第 ${idx + 1} 段命名（或更新名稱）：`, src.title || '');
   if (next == null) return;
   const trimmed = next.trim();
   if (!trimmed) return;
   if (trimmed === (src.title || '')) return;
   try {
-    const r = await api(`/api/meetings/${state.currentMeetingId}/sources/${idx}`, {
+    const r = await api(`/api/meetings/${state.currentMeetingId}/records/${rec.id}/sources/${idx}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: trimmed })
@@ -3388,19 +4198,19 @@ async function handleSourceRename(idx) {
 }
 
 async function handleSourceDelete(idx) {
-  const m = state.currentMeeting;
-  const src = m?.sources?.[idx];
-  if (!src) return;
-  const total = m.sources.length;
+  const rec = activeRecord();
+  const src = rec?.sources?.[idx];
+  if (!rec || !src) return;
+  const total = rec.sources.length;
   const label = src.title || `第 ${idx + 1} 段`;
   const extra = total === 1
-    ? '\n\n提醒：這是此卷僅有的來源，刪除後卷宗會留空，可考慮直接「解除此卷」。'
-    : '\n\n刪完後記得按「重新摘要」讓月讀之言對齊新內容。';
+    ? '\n\n提醒：這是此場僅有的來源，刪除後此場會留空，可考慮直接「刪除此場記錄」。'
+    : '\n\n刪完後記得按「重新摘要」讓本場摘要對齊新內容。';
   if (!confirm(`確定刪除「${label}」？此來源在 NotebookLM 上也會被永久刪除。${extra}`)) return;
   try {
-    const r = await api(`/api/meetings/${state.currentMeetingId}/sources/${idx}`, { method: 'DELETE' });
+    const r = await api(`/api/meetings/${state.currentMeetingId}/records/${rec.id}/sources/${idx}`, { method: 'DELETE' });
     state.currentMeeting = r.meeting;
-    state.openSources = {};
+    state.openSources[rec.id] = {};
     renderStage();
     if (r.warning) alert('本地已刪除，但 NotebookLM 端刪除失敗：\n' + r.warning);
   } catch (e) {
@@ -3408,31 +4218,389 @@ async function handleSourceDelete(idx) {
   }
 }
 
-async function handleResummarize() {
+function cleanScreenshotText(text) {
+  return String(text == null ? '' : text)
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function screenshotFileName(text) {
+  const base = cleanScreenshotText(text || 'Yomi會議結果')
+    .replace(/[\\/:*?"<>|]/g, '')
+    .slice(0, 36)
+    .trim() || 'Yomi會議結果';
+  const d = new Date();
+  const stamp = [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
+  ].join('');
+  return `${base}-${stamp}.png`;
+}
+
+function wrapCanvasLines(ctx, text, maxWidth) {
+  const lines = [];
+  const normalized = cleanScreenshotText(text);
+  if (!normalized) return [''];
+  let line = '';
+  for (const ch of Array.from(normalized)) {
+    const next = line + ch;
+    if (line && ctx.measureText(next).width > maxWidth) {
+      lines.push(line.trim());
+      line = ch.trimStart();
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line.trim());
+  return lines;
+}
+
+function drawWrappedCanvasText(ctx, text, x, y, maxWidth, lineHeight, opts = {}) {
+  const lines = wrapCanvasLines(ctx, text, maxWidth);
+  const maxLines = opts.maxLines || lines.length;
+  const clipped = lines.slice(0, maxLines);
+  if (lines.length > maxLines && clipped.length) {
+    clipped[clipped.length - 1] = clipped[clipped.length - 1].replace(/[，。、；：,.!?！？]?$/, '') + '...';
+  }
+  if (opts.draw !== false) {
+    clipped.forEach((line, i) => ctx.fillText(line, x, y + i * lineHeight));
+  }
+  return clipped.length * lineHeight;
+}
+
+function parseMarkdownTableRow(line) {
+  return line.replace(/^\||\|$/g, '').split('|').map(cleanScreenshotText);
+}
+
+function isMarkdownTableSeparator(line) {
+  return /^\|[\s\-:|]+\|?\s*$/.test(line || '');
+}
+
+function drawScreenshotTable(ctx, rows, x, y, width, draw) {
+  const colCount = Math.max(...rows.map(r => r.length), 1);
+  const ratios = colCount === 4 ? [0.2, 0.22, 0.28, 0.3]
+    : colCount === 3 ? [0.24, 0.38, 0.38]
+      : Array.from({ length: colCount }, () => 1 / colCount);
+  const total = ratios.slice(0, colCount).reduce((a, b) => a + b, 0);
+  const colWidths = ratios.slice(0, colCount).map(r => width * r / total);
+  const padX = 14;
+  const padY = 12;
+  const lineHeight = 24;
+  let cursorY = y;
+
+  rows.forEach((row, rowIdx) => {
+    ctx.font = rowIdx === 0 ? '600 22px "Noto Sans TC", -apple-system, BlinkMacSystemFont, sans-serif' : '20px "Noto Sans TC", -apple-system, BlinkMacSystemFont, sans-serif';
+    const cellLines = colWidths.map((cw, i) => wrapCanvasLines(ctx, row[i] || '', cw - padX * 2));
+    const rowHeight = Math.max(...cellLines.map(lines => lines.length * lineHeight + padY * 2), 48);
+    if (draw) {
+      ctx.fillStyle = rowIdx === 0 ? '#eee4d2' : (rowIdx % 2 ? '#fffdf7' : '#f8f1e4');
+      ctx.fillRect(x, cursorY, width, rowHeight);
+      ctx.strokeStyle = '#d7c7ab';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, cursorY, width, rowHeight);
+      let cellX = x;
+      colWidths.forEach((cw, i) => {
+        if (i > 0) {
+          ctx.beginPath();
+          ctx.moveTo(cellX, cursorY);
+          ctx.lineTo(cellX, cursorY + rowHeight);
+          ctx.stroke();
+        }
+        ctx.fillStyle = rowIdx === 0 ? '#3f3528' : '#4e463b';
+        cellLines[i].forEach((line, j) => {
+          ctx.fillText(line, cellX + padX, cursorY + padY + 19 + j * lineHeight);
+        });
+        cellX += cw;
+      });
+    }
+    cursorY += rowHeight;
+  });
+  return cursorY - y;
+}
+
+function drawSummaryScreenshot(ctx, draw) {
+  const m = state.currentMeeting || {};
+  const r = activeRecord() || {};
+  const modeInfo = modeMeta(m.mode);
+  const width = 1400;
+  const margin = 84;
+  const contentW = width - margin * 2;
+  let y = margin;
+
+  if (draw) {
+    ctx.fillStyle = '#fbf7ee';
+    ctx.fillRect(0, 0, width, ctx.canvas.height);
+    ctx.fillStyle = '#f4eadb';
+    ctx.fillRect(36, 36, width - 72, ctx.canvas.height - 72);
+    ctx.fillStyle = '#fffbf4';
+    ctx.fillRect(48, 48, width - 96, ctx.canvas.height - 96);
+  }
+
+  ctx.fillStyle = '#8a6b3f';
+  ctx.font = '600 22px "Shippori Mincho", "Noto Sans TC", serif';
+  if (draw) ctx.fillText('Yomi 月讀', margin, y);
+  ctx.textAlign = 'right';
+  if (draw) ctx.fillText(modeInfo.label, width - margin, y);
+  ctx.textAlign = 'left';
+  y += 48;
+
+  ctx.fillStyle = '#2f2a24';
+  ctx.font = '700 46px "Noto Sans TC", -apple-system, BlinkMacSystemFont, sans-serif';
+  y += drawWrappedCanvasText(ctx, m.title || '會議結果', margin, y, contentW, 58, { draw, maxLines: 2 }) + 10;
+
+  ctx.fillStyle = '#6f6254';
+  ctx.font = '24px "Noto Sans TC", -apple-system, BlinkMacSystemFont, sans-serif';
+  const subtitle = r.title || `會議記錄 ${(m.records || []).findIndex(x => x.id === r.id) + 1}`;
+  if (draw) ctx.fillText(subtitle, margin, y);
+  y += 36;
+
+  const meta = [];
+  if (r.createdAt || m.createdAt) meta.push(fmtDateTime(r.createdAt || m.createdAt));
+  if (r.completedAt) meta.push('已封印於 ' + fmtDateTime(r.completedAt));
+  if (meta.length) {
+    ctx.fillStyle = '#8a7d6b';
+    ctx.font = '20px "Noto Sans TC", -apple-system, BlinkMacSystemFont, sans-serif';
+    if (draw) ctx.fillText(meta.join(' · '), margin, y);
+    y += 44;
+  }
+
+  if (draw) {
+    ctx.strokeStyle = '#d9c7aa';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(margin, y);
+    ctx.lineTo(width - margin, y);
+    ctx.stroke();
+  }
+  y += 48;
+
+  const lines = String(renameLegacyHeaders(r.summary || '（尚未產生摘要）')).replace(/\r\n?/g, '\n').split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const line = raw.trim();
+    if (!line) {
+      y += 12;
+      continue;
+    }
+
+    if (/^##\s+/.test(line) || /^#\s+/.test(line)) {
+      y += 16;
+      ctx.fillStyle = '#3a3228';
+      ctx.font = '700 32px "Noto Sans TC", -apple-system, BlinkMacSystemFont, sans-serif';
+      if (draw) ctx.fillText(cleanScreenshotText(line.replace(/^#+\s+/, '')), margin, y);
+      y += 48;
+      continue;
+    }
+
+    if (/^\|/.test(line) && isMarkdownTableSeparator(lines[i + 1])) {
+      const rows = [parseMarkdownTableRow(line)];
+      i += 2;
+      while (i < lines.length && /^\|/.test(lines[i])) {
+        rows.push(parseMarkdownTableRow(lines[i]));
+        i++;
+      }
+      i--;
+      y += drawScreenshotTable(ctx, rows, margin, y, contentW, draw) + 28;
+      continue;
+    }
+
+    const bullet = line.match(/^[-*]\s+(.+)$/);
+    const ordered = line.match(/^\d+\.\s+(.+)$/);
+    if (bullet || ordered) {
+      const text = bullet ? bullet[1] : ordered[1];
+      ctx.fillStyle = '#4e463b';
+      ctx.font = '23px "Noto Sans TC", -apple-system, BlinkMacSystemFont, sans-serif';
+      if (draw) ctx.fillText('•', margin + 4, y);
+      y += drawWrappedCanvasText(ctx, text, margin + 32, y, contentW - 32, 32, { draw }) + 8;
+      continue;
+    }
+
+    const paragraph = [line];
+    while (i + 1 < lines.length) {
+      const next = lines[i + 1].trim();
+      if (!next || /^#+\s+/.test(next) || /^\|/.test(next) || /^[-*]\s+/.test(next) || /^\d+\.\s+/.test(next)) break;
+      paragraph.push(next);
+      i++;
+    }
+    ctx.fillStyle = '#4e463b';
+    ctx.font = '23px "Noto Sans TC", -apple-system, BlinkMacSystemFont, sans-serif';
+    y += drawWrappedCanvasText(ctx, paragraph.join(' '), margin, y, contentW, 34, { draw }) + 18;
+  }
+
+  y += 36;
+  if (draw) {
+    ctx.fillStyle = '#9d8f7c';
+    ctx.font = '18px "Noto Sans TC", -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText('Generated by Yomi', margin, y);
+  }
+  return y + margin;
+}
+
+function canvasToPngBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    if (!canvas.toBlob) {
+      try {
+        const dataUrl = canvas.toDataURL('image/png');
+        const raw = atob(dataUrl.split(',')[1]);
+        const bytes = new Uint8Array(raw.length);
+        for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+        resolve(new Blob([bytes], { type: 'image/png' }));
+      } catch (e) {
+        reject(e);
+      }
+      return;
+    }
+    canvas.toBlob(blob => {
+      if (blob) resolve(blob);
+      else reject(new Error('canvas export failed'));
+    }, 'image/png');
+  });
+}
+
+async function createSummaryImageBlob() {
   const m = state.currentMeeting;
-  if (!m || !state.currentMeetingId) return;
-  if (!(m.sources?.length)) { alert('此卷目前沒有任何來源，無法重新摘要。'); return; }
-  if (!confirm('重新摘要會依目前所有來源重跑一次 NotebookLM；過程中此卷會回到處理中。確定？')) return;
+  const r = activeRecord();
+  if (!m || !r) throw new Error('沒有可匯出的會議結果');
+  if (document.fonts?.ready) {
+    try { await document.fonts.ready; } catch {}
+  }
+
+  const measure = document.createElement('canvas');
+  measure.width = 1400;
+  measure.height = 4000;
+  const measureCtx = measure.getContext('2d');
+  const height = Math.min(Math.ceil(drawSummaryScreenshot(measureCtx, false)), 32000);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 1400;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  drawSummaryScreenshot(ctx, true);
+
+  return {
+    blob: await canvasToPngBlob(canvas),
+    filename: screenshotFileName(`${m.title || 'Yomi'}-${r.title || '會議結果'}`),
+  };
+}
+
+function revokeSummaryImagePreview() {
+  if (state.summaryImagePreview?.url) URL.revokeObjectURL(state.summaryImagePreview.url);
+  state.summaryImagePreview = null;
+}
+
+function setImagePreviewStatus(text, tone) {
+  const el = document.getElementById('image-preview-status');
+  if (!el) return;
+  el.textContent = text || '';
+  el.style.color = tone === 'error' ? 'var(--seal)' : tone === 'ok' ? 'var(--jade)' : 'var(--ink-mute)';
+}
+
+function closeSummaryImagePreview() {
+  const modal = document.getElementById('image-preview-modal');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+  const img = document.getElementById('image-preview-img');
+  if (img) img.removeAttribute('src');
+  revokeSummaryImagePreview();
+}
+
+function downloadSummaryImagePreview() {
+  const preview = state.summaryImagePreview;
+  if (!preview) return;
+  const a = document.createElement('a');
+  a.href = preview.url;
+  a.download = preview.filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+async function copySummaryImagePreview() {
+  const preview = state.summaryImagePreview;
+  if (!preview) return;
+  if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+    setImagePreviewStatus('此瀏覽器不支援直接複製 PNG，請改用下載。', 'error');
+    return;
+  }
+  const btn = document.getElementById('image-preview-copy');
+  if (btn) btn.disabled = true;
   try {
-    await api(`/api/meetings/${state.currentMeetingId}/resummarize`, { method: 'POST' });
+    await navigator.clipboard.write([
+      new ClipboardItem({ [preview.blob.type || 'image/png']: preview.blob })
+    ]);
+    setImagePreviewStatus('已複製圖片，可直接貼到聊天或文件。', 'ok');
+  } catch (e) {
+    setImagePreviewStatus('複製失敗，請確認瀏覽器權限或改用下載。', 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function handleExportSummaryImage() {
+  const m = state.currentMeeting;
+  const r = activeRecord();
+  if (!m || !r) return;
+  const btn = $('#btn-export-summary-image');
+  if (btn) btn.disabled = true;
+  try {
+    revokeSummaryImagePreview();
+    const { blob, filename } = await createSummaryImageBlob();
+    const url = URL.createObjectURL(blob);
+    state.summaryImagePreview = { blob, filename, url };
+
+    const modal = document.getElementById('image-preview-modal');
+    const img = document.getElementById('image-preview-img');
+    const title = document.getElementById('image-preview-title');
+    if (title) title.textContent = '會議結果截圖預覽';
+    if (img) {
+      img.src = url;
+      img.alt = filename;
+    }
+    if (modal) {
+      modal.classList.add('active');
+      modal.setAttribute('aria-hidden', 'false');
+    }
+    setImagePreviewStatus(filename);
+  } catch (e) {
+    alert('截圖產生失敗：' + e.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function handleResummarize() {
+  const rec = activeRecord();
+  if (!rec || state.currentMeetingId == null) return;
+  if (!(rec.sources?.length)) { alert('此場目前沒有任何來源，無法重新摘要。'); return; }
+  if (!confirm('重新摘要會依本場所有來源重跑一次 NotebookLM；過程中本場會回到處理中。確定？')) return;
+  try {
+    await api(`/api/meetings/${state.currentMeetingId}/records/${rec.id}/resummarize`, { method: 'POST' });
     // 後續 stage 變化由 SSE 推回，render 會自然切到 processing
   } catch (e) {
     alert('重新摘要失敗：' + e.message);
   }
 }
 
-async function handleSwitchMode() {
+async function handleSwitchMode(nextMode) {
   const m = state.currentMeeting;
-  if (!m || !state.currentMeetingId) return;
+  const rec = activeRecord();
+  if (!m || !rec || state.currentMeetingId == null) return;
   if (state.switchingMode) return;
-  const current = m.mode === 'class' ? 'class' : 'meeting';
-  const next = current === 'class' ? 'meeting' : 'class';
-  const nextLabel = next === 'class' ? '課堂卷' : '會議卷';
-  if (!confirm(`要把此卷切換成「${nextLabel}」並重新整理摘要嗎？`)) return;
+  const current = normalizeMode(m.mode);
+  const next = normalizeMode(nextMode);
+  if (next === current) return;
+  const nextLabel = modeMeta(next).label;
+  if (!confirm(`要把卷宗模式切換成「${nextLabel}」並重新整理本場摘要嗎？\n（卷宗下其他場次需各自重新摘要才會套用新模式）`)) return;
   state.switchingMode = true;
   renderStage();
   try {
-    await api(`/api/meetings/${state.currentMeetingId}/resummarize`, {
+    await api(`/api/meetings/${state.currentMeetingId}/records/${rec.id}/resummarize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mode: next })
@@ -3445,8 +4613,58 @@ async function handleSwitchMode() {
   }
 }
 
+async function handleRenameRecord(next, prev, el) {
+  const rec = activeRecord();
+  if (!rec || state.currentMeetingId == null) return;
+  el.classList.add('saving');
+  try {
+    const r = await api(`/api/meetings/${state.currentMeetingId}/records/${rec.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: next })
+    });
+    state.currentMeeting = r.meeting;
+    await refreshList();
+    renderStage();
+  } catch (e) {
+    el.textContent = prev;
+    el.classList.remove('saving');
+    alert('改名失敗：' + e.message);
+  }
+}
+
+async function handleDeleteRecord() {
+  const m = state.currentMeeting;
+  const rec = activeRecord();
+  if (!m || !rec || state.currentMeetingId == null) return;
+  const remaining = (m.records || []).length;
+  if (remaining <= 1) {
+    alert('這是此卷宗最後一場記錄，無法只刪場次；請改為「解除整個卷宗」。');
+    return;
+  }
+  const label = rec.title || `場次 ${rec.id}`;
+  if (!confirm(`確定刪除此場「${label}」？此場的所有來源在 NotebookLM 上也會一併刪除。`)) return;
+  try {
+    const r = await api(`/api/meetings/${state.currentMeetingId}/records/${rec.id}`, { method: 'DELETE' });
+    state.currentMeeting = r.meeting;
+    delete state.openSources[rec.id];
+    // 切到剩下的最後一場
+    const lastRecord = r.meeting.records[r.meeting.records.length - 1];
+    state.activeRecordId = lastRecord ? lastRecord.id : null;
+    state.lastAnimatedMeeting = null;
+    lastRenderedView = null;
+    render();
+    if (r.nlmWarnings && r.nlmWarnings.length) {
+      alert('本地已刪除，但部分 NotebookLM 來源刪除失敗：\n' + r.nlmWarnings.join('\n'));
+    }
+  } catch (e) {
+    alert('刪除場次失敗：' + e.message);
+  }
+}
+
 // ── Meeting helpers ────────────────────────────────────────
-async function openMeeting(meeting) {
+async function openMeeting(meeting, opts = {}) {
+  // 切到不同卷宗時，重置 openSources（依 record 分桶）
   if (state.currentMeetingId !== meeting.id) {
     state.openSources = {};
   }
@@ -3454,16 +4672,42 @@ async function openMeeting(meeting) {
   state.currentMeeting = meeting;
   state.transcriptOpen = false;
 
-  // For finished meetings, fetch full content
-  if (['done', 'error', 'cancelled'].includes(meeting.stage)) {
+  // 摘要列表回來的 meeting 是 light version（只有 aggregate stage），有 records 但裡面欄位不完整。
+  // 確保拿到完整 meeting（含 records[].sources / summary）後再決定 activeRecordId。
+  const lightHasNoRecords = !Array.isArray(meeting.records);
+  if (lightHasNoRecords || ['done', 'error', 'cancelled'].includes(meeting.stage)) {
     try {
       const full = await api(`/api/meetings/${meeting.id}`);
       state.currentMeeting = full;
     } catch {}
   }
 
+  const recs = state.currentMeeting?.records || [];
+  if (state.activeRecordId != null && !recs.find(r => r.id === state.activeRecordId)) {
+    // 有設但 id 已失效 → 落回最後一場
+    state.activeRecordId = recs.length ? recs[recs.length - 1].id : null;
+  } else if (state.activeRecordId == null && !opts.keepNull) {
+    // 沒設且未要求 keepNull（多半是 SSE/錄音流程）→ 預設最後一場
+    state.activeRecordId = recs.length ? recs[recs.length - 1].id : null;
+  }
+  // 否則：null + keepNull → 維持 null（顯示 overview）
+
+  // 開啟卷宗時自動展開側邊欄的子場次列表（即使只有 1 場）
+  if (recs.length > 0) state.expandedMeetings.add(meeting.id);
+
   openStream(meeting.id);
   render();
+}
+
+// 把 SSE 推回來的 stage / stageMsg patch 到對應 record 身上
+function patchRecord(meetingId, recordId, patch) {
+  if (state.currentMeetingId !== meetingId) return false;
+  const m = state.currentMeeting;
+  if (!m || !Array.isArray(m.records)) return false;
+  const idx = m.records.findIndex(r => r.id === recordId);
+  if (idx === -1) return false;
+  m.records[idx] = { ...m.records[idx], ...patch };
+  return true;
 }
 
 function openStream(id) {
@@ -3472,8 +4716,8 @@ function openStream(id) {
   currentEventSource.addEventListener('stage', async (e) => {
     try {
       const d = JSON.parse(e.data);
-      if (state.currentMeeting && state.currentMeetingId === id) {
-        state.currentMeeting = { ...state.currentMeeting, stage: d.stage, stageMsg: d.msg };
+      if (typeof d.recordId === 'number') {
+        patchRecord(id, d.recordId, { stage: d.stage, stageMsg: d.msg });
       }
       await refreshList();
       render();
@@ -3482,7 +4726,14 @@ function openStream(id) {
   currentEventSource.addEventListener('done', async (e) => {
     try {
       const d = JSON.parse(e.data);
-      state.currentMeeting = d.meeting;
+      // 後端 broadcast 'done' 的 payload 是完整 meeting，直接覆蓋
+      if (d.meeting && state.currentMeetingId === id) {
+        state.currentMeeting = d.meeting;
+        // 如果 activeRecord 是這個剛 done 的 record，保留；否則自動切過去
+        if (typeof d.recordId === 'number' && state.activeRecordId !== d.recordId) {
+          // 預設不自動切，讓使用者繼續看當下這場
+        }
+      }
       await refreshList();
       render();
     } catch {}
@@ -3490,30 +4741,32 @@ function openStream(id) {
   currentEventSource.addEventListener('error', async (e) => {
     try {
       const d = JSON.parse(e.data);
-      if (state.currentMeeting && state.currentMeetingId === id) {
-        state.currentMeeting = { ...state.currentMeeting, stage: 'error', stageMsg: d.msg };
-        render();
+      if (typeof d.recordId === 'number') {
+        patchRecord(id, d.recordId, { stage: 'error', stageMsg: d.msg });
       }
+      render();
     } catch {}
   });
   currentEventSource.addEventListener('cancelled', async (e) => {
     try {
       const d = JSON.parse(e.data);
-      if (state.currentMeeting && state.currentMeetingId === id) {
-        state.currentMeeting = { ...state.currentMeeting, stage: 'cancelled', stageMsg: d.msg };
-        await refreshList();
-        render();
+      if (typeof d.recordId === 'number') {
+        patchRecord(id, d.recordId, { stage: 'cancelled', stageMsg: d.msg });
       }
+      await refreshList();
+      render();
     } catch {}
   });
   currentEventSource.addEventListener('append-error', async (e) => {
     try {
       const d = JSON.parse(e.data);
-      if (state.currentMeetingId === id) {
-        state.currentMeeting = d.meeting || { ...state.currentMeeting, appendError: d.msg, stage: 'done' };
-        await refreshList();
-        render();
+      if (d.meeting && state.currentMeetingId === id) {
+        state.currentMeeting = d.meeting;
+      } else if (typeof d.recordId === 'number') {
+        patchRecord(id, d.recordId, { appendError: d.msg, stage: 'done' });
       }
+      await refreshList();
+      render();
     } catch {}
   });
 }
@@ -3678,7 +4931,7 @@ function wireGlobal() {
   // Global drag/drop fallback (when not on idle dropzone)
   document.addEventListener('dragover', e => e.preventDefault());
   document.addEventListener('drop', e => {
-    if (e.target.closest('#dropzone')) return; // handled inside
+    if (e.target.closest('#dropzone, #append-dropzone')) return; // 各自處理
     e.preventDefault();
     const f = e.dataTransfer?.files?.[0];
     if (f) handleUpload(f);
@@ -3693,8 +4946,19 @@ function wireGlobal() {
   if (modalCancel) modalCancel.addEventListener('click', closeSourceModal);
   if (modalSubmit) modalSubmit.addEventListener('click', handleSourceSubmit);
   if (modalEl) modalEl.addEventListener('click', e => { if (e.target === modalEl) closeSourceModal(); });
+
+  const imagePreviewModal = document.getElementById('image-preview-modal');
+  const imagePreviewClose = document.getElementById('image-preview-close');
+  const imagePreviewCopy = document.getElementById('image-preview-copy');
+  const imagePreviewDownload = document.getElementById('image-preview-download');
+  if (imagePreviewClose) imagePreviewClose.addEventListener('click', closeSummaryImagePreview);
+  if (imagePreviewCopy) imagePreviewCopy.addEventListener('click', copySummaryImagePreview);
+  if (imagePreviewDownload) imagePreviewDownload.addEventListener('click', downloadSummaryImagePreview);
+  if (imagePreviewModal) imagePreviewModal.addEventListener('click', e => { if (e.target === imagePreviewModal) closeSummaryImagePreview(); });
+
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && state.sourceModal) closeSourceModal();
+    if (e.key === 'Escape' && state.summaryImagePreview) closeSummaryImagePreview();
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && state.sourceModal) {
       e.preventDefault(); handleSourceSubmit();
     }
@@ -3747,6 +5011,26 @@ if (document.readyState === 'loading') {
       <div class="text-modal-actions">
         <button class="control-btn ghost" id="text-modal-cancel">取消</button>
         <button class="control-btn primary" id="text-modal-submit">封入卷宗</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 會議結果截圖預覽 -->
+  <div class="text-modal" id="image-preview-modal" aria-hidden="true">
+    <div class="text-modal-card image-preview-card">
+      <div class="text-modal-hd">
+        <span id="image-preview-title">會議結果截圖預覽</span>
+        <button class="icon-ghost" id="image-preview-close" aria-label="關閉">✕</button>
+      </div>
+      <div class="text-modal-body image-preview-body">
+        <div class="image-preview-frame">
+          <img id="image-preview-img" alt="會議結果截圖預覽" />
+        </div>
+      </div>
+      <div class="text-modal-meta image-preview-status" id="image-preview-status"></div>
+      <div class="text-modal-actions">
+        <button class="control-btn ghost" id="image-preview-copy">複製圖片</button>
+        <button class="control-btn primary" id="image-preview-download">下載 PNG</button>
       </div>
     </div>
   </div>
