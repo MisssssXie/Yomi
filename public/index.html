@@ -3484,7 +3484,8 @@ function tplError() {
     </div>
 
     <div class="controls">
-      <button class="control-btn" id="btn-new">回到首頁</button>
+      ${m.notebookId ? `<button class="control-btn primary" id="btn-relink" title="若音檔已經上傳到 NotebookLM 但本地沒接到，按這個試著接回去並重產摘要">重新連結</button>` : ''}
+      <button class="control-btn ghost" id="btn-new">回到首頁</button>
     </div>`;
 }
 
@@ -3676,6 +3677,8 @@ function wireStage() {
   if (btnDelete) btnDelete.addEventListener('click', handleDelete);
   const btnNew = $('#btn-new');
   if (btnNew) btnNew.addEventListener('click', handleBackToIdle);
+  const btnRelink = $('#btn-relink');
+  if (btnRelink) btnRelink.addEventListener('click', handleRelink);
 
   const titleEl = $('#scroll-title');
   if (titleEl) {
@@ -4571,6 +4574,19 @@ async function handleExportSummaryImage() {
     alert('截圖產生失敗：' + e.message);
   } finally {
     if (btn) btn.disabled = false;
+  }
+}
+
+async function handleRelink() {
+  const rec = activeRecord();
+  if (!rec || state.currentMeetingId == null) return;
+  if (rec.stage !== 'error') { alert('這場目前不在崩印狀態，無法重新連結。'); return; }
+  if (!confirm('將嘗試把 NotebookLM 上既有的來源接回此場，並重新產生摘要。確定？')) return;
+  try {
+    await api(`/api/meetings/${state.currentMeetingId}/records/${rec.id}/relink`, { method: 'POST' });
+    // 後續 stage 變化由 SSE 推回，render 會自然切到 processing
+  } catch (e) {
+    alert('重新連結失敗：' + e.message);
   }
 }
 

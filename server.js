@@ -459,6 +459,147 @@ async function appendSourceToRecord(meeting, record, sourceIndex) {
   }
 }
 
+// 失敗的場次：若音源已經上傳到 NotebookLM 但 nlm CLI 超時放棄，
+// 用 source list 把現有來源接回 sourceId，再繼續逐字稿 + 摘要。
+async function relinkRecord(meeting, record) {
+  try {
+    checkCancelled(record);
+    if (!meeting.notebookId) {
+      throw new Error('此卷宗尚未建立 NotebookLM 筆記，無法重新連結。請刪除後重新建立。');
+    }
+    if (!record.sources?.length) throw new Error('此場次沒有任何來源');
+
+    record.cancelled = false;
+    record.error = undefined;
+    pushStage(meeting, record, 'uploading', '查詢 NotebookLM 上既有的來源…');
+
+    const listRes = await runForRecord(meeting.id, record.id, NLM_BIN, ['source', 'list', meeting.notebookId, '--json']);
+    let nlmSources;
+    try {
+      const parsed = JSON.parse(listRes.stdout);
+      nlmSources = Array.isArray(parsed) ? parsed : (parsed?.sources || []);
+    } catch {
+      throw new Error('無法解析 NotebookLM source list 回應，請稍後再試');
+    }
+
+    // 已被本卷宗其他 record 用掉的 sourceId 不能再認領
+    const used = new Set();
+    for (const r of meeting.records || []) {
+      for (const s of r.sources || []) {
+        if (s.sourceId) used.add(s.sourceId);
+      }
+    }
+    const available = nlmSources.filter(s => s && s.id && !used.has(s.id));
+    const missing = record.sources.filter(s => !s.sourceId);
+
+    if (missing.length === 0) {
+      // 全部都有 sourceId，可能只是當初摘要那步壞掉。直接補逐字稿 + 重產摘要。
+    } else {
+      const linked = [];
+      const stillMissing = [];
+      const claimed = new Set();
+      for (const src of missing) {
+        const candidates = available.filter(s => !claimed.has(s.id));
+        const matchTitle = candidates.find(s => (s.title || '').trim() === (src.title || '').trim());
+        const audioName = src.audioFile;
+        const matchFile = !matchTitle && audioName
+          ? candidates.find(s => (s.title || '').trim() === audioName || (s.title || '').includes(audioName))
+          : null;
+        let match = matchTitle || matchFile;
+        if (!match && candidates.length === 1 && missing.length === 1) match = candidates[0];
+        if (match) {
+          src.sourceId = match.id;
+          claimed.add(match.id);
+          linked.push({ src, oldTitle: match.title });
+        } else {
+          stillMissing.push(src);
+        }
+      }
+
+      if (linked.length === 0) {
+        const notebookTitles = nlmSources.map(s => s.title).filter(Boolean);
+        throw new Error(
+          '在 NotebookLM 找不到對應的來源可以接回。\n' +
+          `本地預期：${missing.map(s => s.title || s.audioFile || s.kind).join('、')}\n` +
+          `Notebook 現有：${notebookTitles.join('、') || '(無)'}`
+        );
+      }
+      save();
+
+      // 對到的來源若標題還是預設檔名，幫忙改回我們設定的標題
+      for (const { src, oldTitle } of linked) {
+        if (oldTitle && oldTitle !== src.title) {
+          try {
+            await run(NLM_BIN, ['source', 'rename', src.sourceId, src.title, '--notebook', meeting.notebookId]);
+          } catch (e) {
+            console.warn('[relink] rename source 失敗（不影響主流程）:', String(e.message || e).slice(0, 200));
+          }
+        }
+      }
+
+      if (stillMissing.length > 0) {
+        // 還是有對不上的 — 那些重新上傳
+        for (const src of stillMissing) {
+          const idx = record.sources.indexOf(src);
+          await ingestSource(meeting, record, src, {
+            uploadStage: 'uploading',
+            uploadMsg: `重新上傳第 ${idx + 1} 段來源…`,
+            transcribeMsg: `取得第 ${idx + 1} 段內容…`,
+          });
+        }
+      }
+    }
+
+    // 逐字稿補齊（已認領的來源沒有本地內容時拉一次）
+    for (const src of record.sources) {
+      const kind = src.kind || 'audio';
+      if (kind === 'text') { if (!src.transcript) src.transcript = src.text || ''; continue; }
+      const trimmed = (src.transcript || '').trim();
+      const needFetch = !trimmed || /^\(無法取得內容/.test(trimmed);
+      if (!needFetch || !src.sourceId) continue;
+      checkCancelled(record);
+      pushStage(meeting, record, 'transcribing', `取得「${src.title}」逐字稿…`);
+      try {
+        const tRes = await runForRecord(meeting.id, record.id, NLM_BIN, ['source', 'get', src.sourceId]);
+        src.transcript = extractContent(tRes.stdout);
+      } catch (e) {
+        src.transcript = `(無法取得內容: ${e.message})`;
+      }
+      save();
+    }
+
+    checkCancelled(record);
+    pushStage(meeting, record, 'summarizing', '產生摘要與可詢問議題…');
+    const qRes = await runForRecord(meeting.id, record.id, NLM_BIN, ['notebook', 'query', meeting.notebookId, scopedPromptFor(meeting, record)]);
+    record.summary = validateSummary(qRes.stdout);
+    record.completedAt = new Date().toISOString();
+    record.error = undefined;
+    delete record.appendError;
+
+    // 第一場 record + 卷宗還是預設標題 → 順便由 NLM 自動命名
+    const isFirstRecord = meeting.records[0]?.id === record.id;
+    const defaultTitled = /^(?:會議|紀錄|網頁|YouTube|Drive)[\s·]/.test(meeting.title || '');
+    if (isFirstRecord && defaultTitled) {
+      pushStage(meeting, record, 'summarizing', '由月讀為此卷命名…');
+      await autoTitleMeeting(meeting, record);
+    }
+
+    pushStage(meeting, record, 'done', '完成');
+    broadcast(meeting.id, 'done', { recordId: record.id, meeting });
+  } catch (e) {
+    const raw = String(e.message || e);
+    if (raw.includes('__CANCELLED__') || record.cancelled) {
+      pushStage(meeting, record, 'cancelled', '已取消');
+      broadcast(meeting.id, 'cancelled', { recordId: record.id, msg: '已取消' });
+      return;
+    }
+    const friendly = friendlyError(raw);
+    record.error = friendly;
+    pushStage(meeting, record, 'error', friendly);
+    broadcast(meeting.id, 'error', { recordId: record.id, msg: friendly });
+  }
+}
+
 // 用既有 notebook 重跑某 record 的摘要
 async function resummarizeRecord(meeting, record) {
   const previousSummary = record.summary;
@@ -949,6 +1090,21 @@ const server = http.createServer((req, res) => {
         sendJson(res, 200, { meeting: m, synced: false });
       }
     });
+    return;
+  }
+
+  // ---------- 對崩印場次嘗試重新連結 NotebookLM 上既有的來源 ----------
+  const relinkMatch = url.pathname.match(/^\/api\/meetings\/(\d+)\/records\/(\d+)\/relink$/);
+  if (req.method === 'POST' && relinkMatch) {
+    const id = Number(relinkMatch[1]);
+    const rid = Number(relinkMatch[2]);
+    const m = findMeeting(id);
+    const r = findRecord(m, rid);
+    if (!m || !r) return sendJson(res, 404, { error: 'not found' });
+    if (r.stage !== 'error') return sendJson(res, 400, { error: '只有崩印（error）的場次能重新連結' });
+    if (!m.notebookId) return sendJson(res, 400, { error: '此卷宗沒有對應的 NotebookLM 筆記，無法重新連結；請刪除後重建' });
+    sendJson(res, 200, { meeting: m, recordId: r.id });
+    relinkRecord(m, r);
     return;
   }
 
